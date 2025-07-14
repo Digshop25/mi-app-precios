@@ -14,6 +14,17 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            background-color: #f3f4f6; /* Light gray background for the whole page */
+        }
+        /* Custom styles for better visual appeal and responsiveness */
+        .shadow-custom-light {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+        .shadow-custom-medium {
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        .shadow-custom-strong {
+            box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
         }
     </style>
 
@@ -43,7 +54,6 @@
           { id: 'mock-admin', username: 'admin', password: 'password123', type: 'admin', email: 'admin@example.com' },
           { id: 'mock-direccion', username: 'direccion', password: 'password123', type: 'direccion', email: 'direccion@example.com' },
           { id: 'mock-distribuidor', username: 'distribuidor', password: 'password123', type: 'distribuidor', email: 'distribuidor@example.com' },
-          // CORRECTED: Added username for subdistribuidor
           { id: 'mock-subdistribuidor', username: 'subdistribuidor', password: 'password123', type: 'sub distribuidor', email: 'subdistribuidor@example.com' },
         ];
 
@@ -86,7 +96,6 @@
                 'Precio subdistribuidor (IVA Incluido)',
                 'Inicio de Vigencia',
                 'Fin de Vigencia',
-                // CORRECTED: Added Utilidad DS for 'direccion' user
                 'Utilidad DS'
             ],
             distribuidor: [
@@ -260,10 +269,10 @@
           if (!userType) {
             return (
               <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 p-4 font-inter">
-                <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+                <div className="bg-white p-8 rounded-xl shadow-custom-strong w-full max-w-md border border-gray-200">
                   <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">Iniciar Sesión</h2>
                   {error && (
-                      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4" role="alert">
+                      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
                           <strong className="font-bold">Error:</strong>
                           <span className="block sm:inline"> {error}</span>
                       </div>
@@ -276,10 +285,11 @@
                       <input
                         type="text"
                         id="username"
-                        className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         required
+                        aria-label="Usuario"
                       />
                     </div>
                     <div className="mb-6">
@@ -289,29 +299,30 @@
                       <input
                         type="password"
                         id="password"
-                        className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        aria-label="Contraseña"
                       />
                     </div>
                     <button
                       type="submit"
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition duration-300 ease-in-out transform hover:scale-105"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
                     >
                       Entrar
                     </button>
                   </form>
-                  <p className="text-center text-gray-600 text-sm mt-6">
-                    <span className="font-semibold">Usuarios de prueba (hardcoded):</span>
+                  <p className="text-center text-gray-600 text-sm mt-6 leading-relaxed">
+                    <span className="font-semibold text-gray-700">Usuarios de prueba (hardcodeados):</span>
                     <br />
-                    admin / password123 (Administrador)
+                    <span className="font-medium">admin</span> / password123 <span className="text-gray-500">(Administrador)</span>
                     <br />
-                    direccion / password123 (Dirección)
+                    <span className="font-medium">direccion</span> / password123 <span className="text-gray-500">(Dirección)</span>
                     <br />
-                    distribuidor / password123 (Distribuidor)
+                    <span className="font-medium">distribuidor</span> / password123 <span className="text-gray-500">(Distribuidor)</span>
                     <br />
-                    subdistribuidor / password123 (Sub Distribuidor)
+                    <span className="font-medium">subdistribuidor</span> / password123 <span className="text-gray-500">(Sub Distribuidor)</span>
                   </p>
                 </div>
               </div>
@@ -320,14 +331,14 @@
 
           return (
             <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8 font-inter">
-              <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden">
-                <header className="bg-gradient-to-r from-blue-600 to-purple-700 p-6 flex flex-col sm:flex-row justify-between items-center text-white">
-                  <h1 className="text-3xl font-extrabold mb-4 sm:mb-0">Lista de Precios</h1>
-                  <div className="flex items-center space-x-4">
-                    <span className="text-lg">Bienvenido, <span className="font-bold capitalize">{userType}</span>!</span>
+              <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-custom-strong overflow-hidden border border-gray-200">
+                <header className="bg-gradient-to-r from-blue-600 to-purple-700 p-6 flex flex-col sm:flex-row justify-between items-center text-white shadow-custom-medium">
+                  <h1 className="text-3xl sm:text-4xl font-extrabold mb-4 sm:mb-0 text-shadow-lg">Lista de Precios</h1>
+                  <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                    <span className="text-lg sm:text-xl font-light">Bienvenido, <span className="font-bold capitalize">{userType}</span>!</span>
                     <button
                       onClick={handleLogout}
-                      className="bg-white text-blue-600 hover:bg-blue-100 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+                      className="bg-white text-blue-600 hover:bg-blue-100 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
                     >
                       Cerrar Sesión
                     </button>
@@ -335,12 +346,12 @@
                 </header>
 
                 {userType === 'admin' && (
-                  <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200 flex flex-col gap-6">
-                    <h3 className="text-2xl font-bold text-gray-800 mb-4">Gestión de Usuarios (Local)</h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                        <strong className="text-red-500">Nota:</strong> Los usuarios creados aquí son solo para demostración y no se guardarán de forma permanente. Desaparecerán al recargar la página.
+                  <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200">
+                    <h3 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-3">Gestión de Usuarios (Local)</h3>
+                    <p className="text-sm text-gray-600 mb-6 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <strong className="text-red-600">Atención:</strong> Los usuarios creados aquí son solo para demostración y **no se guardarán de forma permanente**. Desaparecerán al recargar la página.
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                       <div>
                         <label htmlFor="new-username" className="block text-gray-700 text-sm font-semibold mb-2">
                           Nombre de Usuario
@@ -348,10 +359,11 @@
                         <input
                           type="text"
                           id="new-username"
-                          className="shadow-sm appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                           value={newUsername}
                           onChange={(e) => setNewUsername(e.target.value)}
                           placeholder="Ej: juan.perez"
+                          aria-label="Nombre de Usuario"
                         />
                       </div>
                       <div>
@@ -361,10 +373,11 @@
                         <input
                           type="email"
                           id="new-user-email"
-                          className="shadow-sm appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                           value={newUserEmail}
                           onChange={(e) => setNewUserEmail(e.target.value)}
                           placeholder="Ej: juan.perez@dominio.com"
+                          aria-label="Email del nuevo usuario"
                         />
                       </div>
                       <div>
@@ -374,10 +387,11 @@
                         <input
                           type="password"
                           id="new-user-password"
-                          className="shadow-sm appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                           value={newUserPassword}
                           onChange={(e) => setNewUserPassword(e.target.value)}
                           placeholder="Contraseña segura"
+                          aria-label="Contraseña del nuevo usuario"
                         />
                       </div>
                       <div>
@@ -386,9 +400,10 @@
                         </label>
                         <select
                           id="new-user-type"
-                          className="shadow-sm appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
                           value={newUserType}
                           onChange={(e) => setNewUserType(e.target.value)}
+                          aria-label="Tipo de usuario para el nuevo usuario"
                         >
                           <option value="sub distribuidor">Sub Distribuidor</option>
                           <option value="distribuidor">Distribuidor</option>
@@ -399,7 +414,7 @@
                       <div className="flex items-end col-span-1 md:col-span-2 lg:col-span-1">
                         <button
                           onClick={handleCreateUser}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition duration-300 ease-in-out transform hover:scale-105"
+                          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
                         >
                           Crear Usuario
                         </button>
@@ -407,24 +422,24 @@
                     </div>
                     {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
 
-                    <h4 className="text-xl font-bold text-gray-700 mb-2">Usuarios Registrados (Local)</h4>
-                    <div className="overflow-x-auto">
+                    <h4 className="text-xl font-bold text-gray-700 mb-4 border-b pb-2">Usuarios Registrados (Local)</h4>
+                    <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-custom-light">
                       {loadingUsers ? (
                         <p className="text-center text-gray-600 py-4">Cargando usuarios...</p>
                       ) : (
-                        <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
-                          <thead className="bg-gray-50">
+                        <table className="min-w-full bg-white">
+                          <thead className="bg-gray-100">
                             <tr>
-                              <th className="py-2 px-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
+                              <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
                                 Usuario
                               </th>
-                              <th className="py-2 px-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
+                              <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
                                 Email
                               </th>
-                              <th className="py-2 px-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
+                              <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
                                 Tipo
                               </th>
-                              <th className="py-2 px-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
+                              <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
                                 ID (Local)
                               </th>
                             </tr>
@@ -432,10 +447,10 @@
                           <tbody>
                             {registeredUsers.map((user, index) => (
                               <tr key={user.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
-                                <td className="py-2 px-3 whitespace-nowrap text-gray-800 border-b">{user.username}</td>
-                                <td className="py-2 px-3 whitespace-nowrap text-gray-700 border-b">{user.email || 'N/A'}</td>
-                                <td className="py-2 px-3 whitespace-nowrap text-gray-700 border-b capitalize">{user.type}</td>
-                                <td className="py-2 px-3 whitespace-nowrap text-gray-500 text-xs border-b">{user.id}</td>
+                                <td className="py-3 px-4 whitespace-nowrap text-gray-800 border-b border-gray-100">{user.username}</td>
+                                <td className="py-3 px-4 whitespace-nowrap text-gray-700 border-b border-gray-100">{user.email || 'N/A'}</td>
+                                <td className="py-3 px-4 whitespace-nowrap text-gray-700 border-b border-gray-100 capitalize">{user.type}</td>
+                                <td className="py-3 px-4 whitespace-nowrap text-gray-500 text-xs border-b border-gray-100">{user.id}</td>
                               </tr>
                             ))}
                             {registeredUsers.length === 0 && (
@@ -451,7 +466,7 @@
                 )}
 
                 <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <label htmlFor="csv-upload" className="block text-gray-700 text-sm font-semibold">
+                  <label htmlFor="csv-upload" className="block text-gray-700 text-base font-semibold sm:mb-0">
                     Cargar archivo CSV:
                   </label>
                   <input
@@ -463,8 +478,9 @@
                       file:mr-4 file:py-2 file:px-4
                       file:rounded-lg file:border-0
                       file:text-sm file:font-semibold
-                      file:bg-blue-50 file:text-blue-700
-                      hover:file:bg-blue-100 transition duration-200"
+                      file:bg-blue-100 file:text-blue-700
+                      hover:file:bg-blue-200 transition duration-200 cursor-pointer shadow-sm"
+                    aria-label="Cargar archivo CSV"
                   />
                   {error && <p className="text-red-500 text-sm text-center sm:text-right mt-2 sm:mt-0">{error}</p>}
                 </div>
@@ -472,26 +488,26 @@
                 <div className="p-4 sm:p-6 lg:p-8 overflow-x-auto">
                   {/* Debugging info */}
                   {userType && (
-                      <div className="mb-4 text-sm text-gray-700">
-                          <p>Datos de precios cargados: {priceData.length} elementos</p>
-                          <p>Columnas a mostrar para <span className="capitalize font-semibold">{userType}</span>: {columnsToDisplay.length} columnas</p>
+                      <div className="mb-4 text-sm text-gray-700 p-3 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
+                          <p>Datos de precios cargados: <span className="font-semibold">{priceData.length}</span> elementos</p>
+                          <p>Columnas a mostrar para <span className="font-bold capitalize text-blue-700">{userType}</span>: <span className="font-semibold">{columnsToDisplay.length}</span> columnas</p>
                       </div>
                   )}
                   {/* End Debugging info */}
 
                   {priceData.length > 0 ? (
-                    <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
-                      <thead className="bg-gray-50">
+                    <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-custom-light">
+                      <thead className="bg-gray-100">
                         <tr>
                           {/* Render table headers based on columnVisibility for the current userType */}
                           {columnsToDisplay.length > 0 ? (
                               columnsToDisplay.map(col => (
-                                  <th key={col.key} className="py-3 px-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b">
+                                  <th key={col.key} className="py-3 px-4 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200 bg-gray-100">
                                     {col.label}
                                   </th>
                               ))
                           ) : (
-                              <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b" colSpan={allColumns.length}>
+                              <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200" colSpan={allColumns.length}>
                                 No hay columnas para mostrar para este tipo de usuario.
                               </th>
                           )}
@@ -499,11 +515,11 @@
                       </thead>
                       <tbody>
                         {priceData.map((item, index) => (
-                          <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
+                          <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150 ease-in-out`}>
                             {/* Render table cells based on columnVisibility for the current userType */}
                             {columnsToDisplay.length > 0 ? (
                                 columnsToDisplay.map(col => (
-                                    <td key={`${item.id}-${col.key}`} className="py-3 px-4 whitespace-nowrap text-gray-800 border-b">
+                                    <td key={`${item.id}-${col.key}`} className="py-3 px-4 whitespace-nowrap text-gray-800 border-b border-gray-100 text-sm">
                                       {/* Format price columns to 2 decimal places */}
                                       {col.key.startsWith('Precio') || col.key === 'Utilidad DS'
                                         ? `$${item[col.key] ? parseFloat(item[col.key]).toFixed(2) : '0.00'}`
@@ -511,7 +527,7 @@
                                     </td>
                                 ))
                             ) : (
-                                <td colSpan={allColumns.length} className="py-4 text-center text-gray-500">
+                                <td colSpan={allColumns.length} className="py-4 text-center text-gray-500 text-sm">
                                     No hay datos de columna para mostrar para este tipo de usuario.
                                 </td>
                             )}
@@ -520,7 +536,7 @@
                       </tbody>
                     </table>
                   ) : (
-                    <p className="text-center text-gray-600 py-8">No hay datos de precios para mostrar. Por favor, carga un archivo CSV.</p>
+                    <p className="text-center text-gray-600 py-8 text-lg bg-gray-50 rounded-lg border border-gray-200 p-4 shadow-sm">No hay datos de precios para mostrar. Por favor, carga un archivo CSV.</p>
                   )}
                 </div>
               </div>
