@@ -43,7 +43,8 @@
           { id: 'mock-admin', username: 'admin', password: 'password123', type: 'admin', email: 'admin@example.com' },
           { id: 'mock-direccion', username: 'direccion', password: 'password123', type: 'direccion', email: 'direccion@example.com' },
           { id: 'mock-distribuidor', username: 'distribuidor', password: 'password123', type: 'distribuidor', email: 'distribuidor@example.com' },
-          { id: 'mock-subdistribuidor', password: 'password123', type: 'sub distribuidor', email: 'subdistribuidor@example.com' },
+          // CORRECTED: Added username for subdistribuidor
+          { id: 'mock-subdistribuidor', username: 'subdistribuidor', password: 'password123', type: 'sub distribuidor', email: 'subdistribuidor@example.com' },
         ];
 
         // Define column headers and their display names
@@ -84,7 +85,9 @@
                 'Precio Publico (IVA incluido)',
                 'Precio subdistribuidor (IVA Incluido)',
                 'Inicio de Vigencia',
-                'Fin de Vigencia'
+                'Fin de Vigencia',
+                // CORRECTED: Added Utilidad DS for 'direccion' user
+                'Utilidad DS'
             ],
             distribuidor: [
                 'Marca',
@@ -107,27 +110,21 @@
           const [password, setPassword] = React.useState('');
           const [error, setError] = React.useState(null);
           const [priceData, setPriceData] = React.useState(initialMockPriceData);
-          // registeredUsers now managed locally, not from Supabase
           const [registeredUsers, setRegisteredUsers] = React.useState(initialMockUsers);
           const [newUsername, setNewUsername] = React.useState('');
-          // newUserEmail is still used for display, but not for Supabase Auth
           const [newUserEmail, setNewUserEmail] = React.useState('');
           const [newUserPassword, setNewUserPassword] = React.useState('');
           const [newUserType, setNewUserType] = React.useState('sub distribuidor');
-          const [loadingUsers, setLoadingUsers] = React.useState(false); // No loading from DB
+          const [loadingUsers, setLoadingUsers] = React.useState(false);
 
-          // Effect to fetch and listen to registered users (now local array)
           React.useEffect(() => {
-            // In a real app, you might load these from localStorage or another local persistence
-            // For this demo, they are simply the initialMockUsers and any new ones added.
-            setLoadingUsers(false); // Always false as no DB fetch
+            setLoadingUsers(false);
             console.log("Usuarios inicializados localmente:", registeredUsers);
           }, []);
 
-          // Handle login attempt (now only uses local mockUsers)
           const handleLogin = (e) => {
             e.preventDefault();
-            setError(null); // Clear previous errors
+            setError(null);
 
             const foundUser = registeredUsers.find(u => u.username === username && u.password === password);
 
@@ -140,7 +137,6 @@
             }
           };
 
-          // Handle logout (local management)
           const handleLogout = () => {
             setUserType(null);
             setUsername('');
@@ -154,7 +150,21 @@
             console.log("Sesión cerrada.");
           };
 
-          // Handle CSV file upload
+          // Function to clean and parse numerical values from CSV
+          const cleanAndParseFloat = (value) => {
+            if (typeof value !== 'string') {
+                return parseFloat(value) || 0;
+            }
+            // Remove currency symbols, thousands separators, and normalize decimal separator
+            const cleanedValue = value
+                .replace(/[^0-9.,-]+/g, '') // Remove non-numeric characters except digits, commas, dots, and hyphens
+                .replace(/\./g, '')       // Remove dots (thousands separator)
+                .replace(/,/g, '.');      // Replace commas with dots (decimal separator)
+
+            const parsed = parseFloat(cleanedValue);
+            return isNaN(parsed) ? 0 : parsed;
+          };
+
           const handleFileUpload = (event) => {
             const file = event.target.files[0];
             if (file) {
@@ -177,24 +187,33 @@
                     return;
                   }
 
-                  const parsedData = results.data.map((row, index) => ({
-                    id: index + 1,
-                    'Tipo Equipo': row['Tipo Equipo'],
-                    Marca: row['Marca'],
-                    Equipo: row['Equipo'],
-                    'Codigo SAP': row['Codigo SAP'],
-                    Color: row['Color'],
-                    'Precio Publico (IVA incluido)': parseFloat(row['Precio Publico (IVA incluido)']) || 0,
-                    'PrecioFacturacion distribuidor (con sim e IVA Incluido)': parseFloat(row['PrecioFacturacion distribuidor (con sim e IVA Incluido)']) || 0,
-                    'Precio subdistribuidor (IVA Incluido)': parseFloat(row['Precio subdistribuidor (IVA Incluido)']) || 0,
-                    'Inicio de Vigencia': row['Inicio de Vigencia'],
-                    'Fin de Vigencia': row['Fin de Vigencia'],
-                    'Utilidad DS': parseFloat(row['Utilidad DS']) || 0,
-                  }));
+                  const parsedData = results.data.map((row, index) => {
+                    // Log raw row for debugging
+                    console.log(`Raw CSV Row ${index + 1}:`, row);
+
+                    const item = {
+                        id: index + 1,
+                        'Tipo Equipo': row['Tipo Equipo'],
+                        Marca: row['Marca'],
+                        Equipo: row['Equipo'],
+                        'Codigo SAP': row['Codigo SAP'],
+                        Color: row['Color'],
+                        'Precio Publico (IVA incluido)': cleanAndParseFloat(row['Precio Publico (IVA incluido)']),
+                        'PrecioFacturacion distribuidor (con sim e IVA Incluido)': cleanAndParseFloat(row['PrecioFacturacion distribuidor (con sim e IVA Incluido)']),
+                        'Precio subdistribuidor (IVA Incluido)': cleanAndParseFloat(row['Precio subdistribuidor (IVA Incluido)']),
+                        'Inicio de Vigencia': row['Inicio de Vigencia'],
+                        'Fin de Vigencia': row['Fin de Vigencia'],
+                        'Utilidad DS': cleanAndParseFloat(row['Utilidad DS']),
+                    };
+                    // Log parsed item for debugging
+                    console.log(`Parsed Item ${index + 1}:`, item);
+                    return item;
+                  });
 
                   if (parsedData.length > 0) {
                     setPriceData(parsedData);
                     setError(null);
+                    console.log("CSV cargado y parseado con éxito. Datos:", parsedData);
                   } else {
                     setError('El archivo CSV está vacío o no contiene datos válidos.');
                     setPriceData(initialMockPriceData);
@@ -208,7 +227,6 @@
             }
           };
 
-          // Handle creating a new user (Admin only - now local, not persistent)
           const handleCreateUser = () => {
             if (!newUsername || !newUserEmail || !newUserPassword) {
               setError('Todos los campos (usuario, email, contraseña) son obligatorios.');
@@ -220,10 +238,10 @@
             }
 
             const newUser = {
-              id: `local-user-${Date.now()}`, // Simple unique ID for local users
+              id: `local-user-${Date.now()}`,
               username: newUsername,
               email: newUserEmail,
-              password: newUserPassword, // In a real app, NEVER store passwords like this!
+              password: newUserPassword,
               type: newUserType,
             };
 
@@ -234,20 +252,17 @@
             setNewUserType('sub distribuidor');
             setError(null);
             console.log("Usuario creado localmente (no persistente):", newUser);
-            // Add a temporary message to inform the user about non-persistence
             alert("Usuario creado localmente. ¡Atención! Este usuario no se guardará y desaparecerá al recargar la página.");
           };
 
-          // Get the columns to display based on the current userType
           const columnsToDisplay = userType ? allColumns.filter(col => columnVisibility[userType] && columnVisibility[userType].includes(col.key)) : [];
 
-          // Render the login form if no user is logged in
           if (!userType) {
             return (
               <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 p-4 font-inter">
                 <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
                   <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">Iniciar Sesión</h2>
-                  {error && ( // Display general error message
+                  {error && (
                       <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4" role="alert">
                           <strong className="font-bold">Error:</strong>
                           <span className="block sm:inline"> {error}</span>
@@ -303,7 +318,6 @@
             );
           }
 
-          // Render the price list if a user is logged in
           return (
             <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8 font-inter">
               <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden">
@@ -395,7 +409,7 @@
 
                     <h4 className="text-xl font-bold text-gray-700 mb-2">Usuarios Registrados (Local)</h4>
                     <div className="overflow-x-auto">
-                      {loadingUsers ? ( // loadingUsers will always be false now
+                      {loadingUsers ? (
                         <p className="text-center text-gray-600 py-4">Cargando usuarios...</p>
                       ) : (
                         <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -471,7 +485,7 @@
                         <tr>
                           {/* Render table headers based on columnVisibility for the current userType */}
                           {columnsToDisplay.length > 0 ? (
-                              columnsToDisplay.map(col => ( // Direct map over columnsToDisplay
+                              columnsToDisplay.map(col => (
                                   <th key={col.key} className="py-3 px-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b">
                                     {col.label}
                                   </th>
@@ -488,7 +502,7 @@
                           <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
                             {/* Render table cells based on columnVisibility for the current userType */}
                             {columnsToDisplay.length > 0 ? (
-                                columnsToDisplay.map(col => ( // Direct map over columnsToDisplay
+                                columnsToDisplay.map(col => (
                                     <td key={`${item.id}-${col.key}`} className="py-3 px-4 whitespace-nowrap text-gray-800 border-b">
                                       {/* Format price columns to 2 decimal places */}
                                       {col.key.startsWith('Precio') || col.key === 'Utilidad DS'
