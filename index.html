@@ -16,7 +16,7 @@
             box-sizing: border-box;
             background-color: #f3f4f6; /* Light gray background for the whole page */
         }
-        /* Custom styles for better visual appeal and responsiveness */
+        /* Custom shadows for better visual appeal */
         .shadow-custom-light {
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
         }
@@ -35,6 +35,29 @@
                 font-size: 0.75rem; /* Smaller font on small screens */
                 padding: 0.5rem 0.75rem; /* Adjust padding */
             }
+        }
+        /* Specific styles for Excel-like table appearance */
+        .excel-table {
+            border-collapse: collapse; /* Ensures single borders */
+            width: 100%;
+        }
+        .excel-table th, .excel-table td {
+            border: 1px solid #e2e8f0; /* Light gray border for all cells */
+            padding: 0.75rem 1rem; /* Consistent padding */
+            text-align: left;
+        }
+        .excel-table thead th {
+            background-color: #e2e8f0; /* Light gray background for headers */
+            font-weight: 600; /* Semi-bold headers */
+            color: #4a5568; /* Darker text for headers */
+            text-transform: uppercase;
+            font-size: 0.875rem; /* Slightly larger font for headers */
+        }
+        .excel-table tbody tr:nth-child(even) {
+            background-color: #f8fafc; /* Lighter alternating row color */
+        }
+        .excel-table tbody tr:hover {
+            background-color: #f0f4f8; /* Subtle hover effect */
         }
     </style>
 
@@ -118,9 +141,17 @@
                 'Fin de Vigencia'
             ],
             'sub distribuidor': [
+                'Marca',
+                'Equipo',
+                'Codigo SAP',
+                'Color',
                 'Precio Publico (IVA incluido)'
             ]
         };
+
+        // !!! IMPORTANT: REPLACE THIS URL WITH THE RAW URL OF YOUR CSV FILE ON GITHUB !!!
+        // Example: https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/YOUR_FILE.csv
+        const DEFAULT_CSV_URL = 'https://github.com/Digshop25/mi-app-precios/raw/refs/heads/main/Lista%2028a%20MOD%202.csv'; // Reemplaza esta URL con la tuya real
 
         // Main App component
         function App() {
@@ -135,39 +166,12 @@
           const [newUserPassword, setNewUserPassword] = React.useState('');
           const [newUserType, setNewUserType] = React.useState('sub distribuidor');
           const [loadingUsers, setLoadingUsers] = React.useState(false);
+          const [csvLoading, setCsvLoading] = React.useState(false); // State for CSV loading indicator
 
           React.useEffect(() => {
             setLoadingUsers(false);
             console.log("Usuarios inicializados localmente:", registeredUsers);
           }, []);
-
-          const handleLogin = (e) => {
-            e.preventDefault();
-            setError(null);
-
-            const foundUser = registeredUsers.find(u => u.username === username && u.password === password);
-
-            if (foundUser) {
-              setUserType(foundUser.type);
-              setError(null);
-              console.log(`Usuario ${foundUser.username} (${foundUser.type}) ha iniciado sesión.`);
-            } else {
-              setError("Nombre de usuario o contraseña incorrectos.");
-            }
-          };
-
-          const handleLogout = () => {
-            setUserType(null);
-            setUsername('');
-            setPassword('');
-            setError(null);
-            setPriceData(initialMockPriceData);
-            setNewUsername('');
-            setNewUserEmail('');
-            setNewUserPassword('');
-            setNewUserType('sub distribuidor');
-            console.log("Sesión cerrada.");
-          };
 
           // Function to clean and parse numerical values from CSV
           const cleanAndParseFloat = (value) => {
@@ -212,10 +216,18 @@
             return isNaN(parsed) ? 0 : parsed;
           };
 
-          const handleFileUpload = (event) => {
-            const file = event.target.files[0];
-            if (file) {
-              Papa.parse(file, {
+          // Function to load CSV from a given URL
+          const loadCsvFromUrl = async (url) => {
+            setCsvLoading(true);
+            setError(null);
+            try {
+              const response = await fetch(url);
+              if (!response.ok) {
+                throw new Error(`Error al cargar el CSV: ${response.statusText} (${response.status}). Asegúrate de que la URL sea correcta y el archivo sea accesible.`);
+              }
+              const csvText = await response.text();
+
+              Papa.parse(csvText, {
                 header: true,
                 skipEmptyLines: true,
                 complete: (results) => {
@@ -235,9 +247,7 @@
                   }
 
                   const parsedData = results.data.map((row, index) => {
-                    // Log raw row for debugging
                     console.log(`Raw CSV Row ${index + 1}:`, row);
-
                     const item = {
                         id: index + 1,
                         'Tipo Equipo': row['Tipo Equipo'],
@@ -252,7 +262,6 @@
                         'Fin de Vigencia': row['Fin de Vigencia'],
                         'Utilidad DS': cleanAndParseFloat(row['Utilidad DS']),
                     };
-                    // Log parsed item for debugging
                     console.log(`Parsed Item ${index + 1}:`, item);
                     return item;
                   });
@@ -271,7 +280,44 @@
                   setPriceData(initialMockPriceData);
                 }
               });
+            } catch (err) {
+              setError(`Error de red o CORS: ${err.message}. Asegúrate de que la URL sea pública y accesible.`);
+              setPriceData(initialMockPriceData);
+            } finally {
+              setCsvLoading(false);
             }
+          };
+
+          // Handle login attempt
+          const handleLogin = async (e) => {
+            e.preventDefault();
+            setError(null);
+
+            const foundUser = registeredUsers.find(u => u.username === username && u.password === password);
+
+            if (foundUser) {
+              setUserType(foundUser.type);
+              setError(null);
+              console.log(`Usuario ${foundUser.username} (${foundUser.type}) ha iniciado sesión.`);
+              // Automatically load CSV after successful login
+              await loadCsvFromUrl(DEFAULT_CSV_URL);
+            } else {
+              setError("Nombre de usuario o contraseña incorrectos.");
+            }
+          };
+
+          // Handle logout
+          const handleLogout = () => {
+            setUserType(null);
+            setUsername('');
+            setPassword('');
+            setError(null);
+            setPriceData(initialMockPriceData); // Reset data on logout
+            setNewUsername('');
+            setNewUserEmail('');
+            setNewUserPassword('');
+            setNewUserType('sub distribuidor');
+            console.log("Sesión cerrada.");
           };
 
           const handleCreateUser = () => {
@@ -465,8 +511,8 @@
                       {loadingUsers ? (
                         <p className="text-center text-gray-600 py-4">Cargando usuarios...</p>
                       ) : (
-                        <table className="min-w-full bg-white">
-                          <thead className="bg-gray-100">
+                        <table className="min-w-full bg-white excel-table">
+                          <thead>
                             <tr>
                               <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
                                 Usuario
@@ -503,25 +549,23 @@
                   </div>
                 )}
 
-                <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <label htmlFor="csv-upload" className="block text-gray-700 text-base font-semibold sm:mb-0">
-                    Cargar archivo CSV:
-                  </label>
-                  <input
-                    type="file"
-                    id="csv-upload"
-                    accept=".csv"
-                    onChange={handleFileUpload}
-                    className="block w-full sm:w-auto text-sm text-gray-500
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-lg file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-blue-100 file:text-blue-700
-                      hover:file:bg-blue-200 transition duration-200 cursor-pointer shadow-sm"
-                    aria-label="Cargar archivo CSV"
-                  />
-                  {error && <p className="text-red-500 text-sm text-center sm:text-right mt-2 sm:mt-0">{error}</p>}
-                </div>
+                {/* Removed CSV URL input and button, now it's automatic */}
+                {/* Removed the file input as well */}
+                {csvLoading && (
+                    <div className="p-4 sm:p-6 lg:p-8 bg-blue-50 border-b border-blue-200 flex items-center justify-center gap-4 rounded-b-xl">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p className="text-blue-700 font-semibold">Cargando datos de precios...</p>
+                    </div>
+                )}
+                {error && (
+                    <div className="p-4 sm:p-6 lg:p-8 bg-red-100 border-b border-red-400 text-red-700 flex items-center justify-center gap-4 rounded-b-xl">
+                        <strong className="font-bold">Error al cargar CSV:</strong>
+                        <span className="block sm:inline"> {error}</span>
+                    </div>
+                )}
 
                 <div className="p-4 sm:p-6 lg:p-8 overflow-x-auto">
                   {/* Debugging info */}
@@ -534,8 +578,8 @@
                   {/* End Debugging info */}
 
                   {priceData.length > 0 ? (
-                    <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-custom-light">
-                      <thead className="bg-gray-100">
+                    <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-custom-light excel-table">
+                      <thead>
                         <tr>
                           {/* Render table headers based on columnVisibility for the current userType */}
                           {columnsToDisplay.length > 0 ? (
