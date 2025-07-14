@@ -171,16 +171,44 @@
 
           // Function to clean and parse numerical values from CSV
           const cleanAndParseFloat = (value) => {
+            console.log(`Original value: "${value}"`);
             if (typeof value !== 'string') {
-                return parseFloat(value) || 0;
+                const parsed = parseFloat(value) || 0;
+                console.log(`Not a string, parsed as: ${parsed}`);
+                return parsed;
             }
-            // Remove currency symbols, thousands separators, and normalize decimal separator
-            const cleanedValue = value
-                .replace(/[^0-9.,-]+/g, '') // Remove non-numeric characters except digits, commas, dots, and hyphens
-                .replace(/\./g, '')       // Remove dots (thousands separator)
-                .replace(/,/g, '.');      // Replace commas with dots (decimal separator)
+
+            // Remove any character that is not a digit, a comma, a dot, or a hyphen
+            let cleanedValue = value.replace(/[^\d.,-]/g, '');
+            console.log(`After initial clean (remove non-numeric, keep .,-): "${cleanedValue}"`);
+
+            // Determine if comma or dot is the decimal separator
+            // If both exist, the last one is typically the decimal
+            const hasComma = cleanedValue.includes(',');
+            const hasDot = cleanedValue.includes('.');
+
+            if (hasComma && hasDot) {
+                // If comma appears after dot, comma is decimal (e.g., "1.234,56")
+                if (cleanedValue.indexOf(',') > cleanedValue.indexOf('.')) {
+                    cleanedValue = cleanedValue.replace(/\./g, ''); // Remove thousands dots
+                    cleanedValue = cleanedValue.replace(/,/g, '.'); // Change decimal comma to dot
+                    console.log(`Both, comma is decimal. Cleaned: "${cleanedValue}"`);
+                } else {
+                    // If dot appears after comma, dot is decimal (e.g., "1,234.56")
+                    cleanedValue = cleanedValue.replace(/,/g, ''); // Remove thousands commas
+                    // Decimal dot is already correct
+                    console.log(`Both, dot is decimal. Cleaned: "${cleanedValue}"`);
+                }
+            } else if (hasComma) {
+                // Only commas, assume it's a decimal comma (e.g., "123,45")
+                cleanedValue = cleanedValue.replace(/,/g, '.');
+                console.log(`Only comma, treated as decimal. Cleaned: "${cleanedValue}"`);
+            }
+            // If only dots, assume it's a decimal dot (e.g., "123.45") - no change needed
+            // If no dots or commas, it's an integer or invalid - parseFloat will handle
 
             const parsed = parseFloat(cleanedValue);
+            console.log(`Parsed float: ${parsed}`);
             return isNaN(parsed) ? 0 : parsed;
           };
 
