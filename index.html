@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lista de Precios</title>
-    <!-- Tailwind CSS CDN (Updated to a specific, minified version - CORRECTED TAG) -->
+    <!-- Tailwind CSS CDN -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/3.4.3/tailwind.min.css" rel="stylesheet">
     <!-- Google Fonts - Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -16,9 +16,6 @@
             box-sizing: border-box;
         }
     </style>
-
-    <!-- Supabase CDN (Changed to unpkg.com) -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <!-- React CDN -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -41,12 +38,12 @@
           { id: 5, 'Tipo Equipo': 'Auriculares', Marca: 'Razer', Equipo: 'Kraken X', 'Codigo SAP': 'RZKX-005', Color: 'Verde', 'Precio Publico (IVA incluido)': 160, 'PrecioFacturacion distribuidor (con sim e IVA Incluido)': 140, 'Precio subdistribuidor (IVA Incluido)': 120, 'Inicio de Vigencia': '2024-01-01', 'Fin de Vigencia': '2024-12-31', 'Utilidad DS': 0.12 },
         ];
 
-        // Mock user data for authentication (for initial login with password)
-        const mockUsers = [
-          { username: 'admin', password: 'password123', type: 'admin' },
-          { username: 'direccion', password: 'password123', type: 'direccion' },
-          { username: 'distribuidor', password: 'password123', type: 'distribuidor' },
-          { username: 'subdistribuidor', password: 'password123', type: 'sub distribuidor' },
+        // Hardcoded user data for authentication (local management)
+        const initialMockUsers = [
+          { id: 'mock-admin', username: 'admin', password: 'password123', type: 'admin', email: 'admin@example.com' },
+          { id: 'mock-direccion', username: 'direccion', password: 'password123', type: 'direccion', email: 'direccion@example.com' },
+          { id: 'mock-distribuidor', username: 'distribuidor', password: 'password123', type: 'distribuidor', email: 'distribuidor@example.com' },
+          { id: 'mock-subdistribuidor', password: 'password123', type: 'sub distribuidor', email: 'subdistribuidor@example.com' },
         ];
 
         // Define column headers and their display names
@@ -110,150 +107,41 @@
           const [password, setPassword] = React.useState('');
           const [error, setError] = React.useState(null);
           const [priceData, setPriceData] = React.useState(initialMockPriceData);
-          const [registeredUsers, setRegisteredUsers] = React.useState([]);
+          // registeredUsers now managed locally, not from Supabase
+          const [registeredUsers, setRegisteredUsers] = React.useState(initialMockUsers);
           const [newUsername, setNewUsername] = React.useState('');
+          // newUserEmail is still used for display, but not for Supabase Auth
           const [newUserEmail, setNewUserEmail] = React.useState('');
           const [newUserPassword, setNewUserPassword] = React.useState('');
           const [newUserType, setNewUserType] = React.useState('sub distribuidor');
-          const [loadingUsers, setLoadingUsers] = React.useState(true);
-          const [supabaseClient, setSupabaseClient] = React.useState(null);
-          const [supabaseInitError, setSupabaseInitError] = React.useState(null);
+          const [loadingUsers, setLoadingUsers] = React.useState(false); // No loading from DB
 
-          // Supabase URL and Anon Key
-          const SUPABASE_URL = 'https://tflfuxxapaxhuzvztcrm.supabase.co';
-          const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRmbGZ1eHhhcGF4aHV6dnp0Y3JtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MjE1NTcsImV4cCI6MjA2ODA5NzU1N30.8Qh2wp_5qRxQNWD3coFSyu9wfOzYcn2jHREgF1-izKE';
-
-          // Effect to initialize Supabase client
+          // Effect to fetch and listen to registered users (now local array)
           React.useEffect(() => {
-            try {
-                // This check should now pass as CDN loads first
-                if (typeof Supabase === 'undefined') {
-                    // This error means the CDN script itself failed to load or execute
-                    throw new Error("La librería global 'Supabase' no está definida. El CDN no se cargó correctamente.");
-                }
-                if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
-                    throw new Error("Credenciales de Supabase incompletas o incorrectas. Por favor, reemplaza los marcadores de posición.");
-                }
-                const client = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                setSupabaseClient(client);
-                console.log("Supabase cliente inicializado en React:", client);
-            } catch (err) {
-                console.error("Error al inicializar Supabase en React:", err);
-                setSupabaseInitError(`Error al inicializar Supabase: ${err.message}. Revisa tus credenciales y la consola.`);
-                setError(`Error de configuración: ${err.message}`); // Display error to user
-            }
-          }, []); // Run only once on component mount
+            // In a real app, you might load these from localStorage or another local persistence
+            // For this demo, they are simply the initialMockUsers and any new ones added.
+            setLoadingUsers(false); // Always false as no DB fetch
+            console.log("Usuarios inicializados localmente:", registeredUsers);
+          }, []);
 
-          // Effect to fetch and listen to registered users from Supabase
-          React.useEffect(() => {
-            if (!supabaseClient) { // Use supabaseClient state variable
-                console.warn("Supabase client not ready. Cannot fetch users.");
-                setLoadingUsers(false);
-                return;
-            }
-
-            setLoadingUsers(true);
-            const channel = supabaseClient
-                .from('app_users')
-                .select('*')
-                .on('INSERT', payload => {
-                    setRegisteredUsers(prevUsers => [...prevUsers, payload.new]);
-                    console.log('Nuevo usuario en tiempo real:', payload.new);
-                })
-                .on('UPDATE', payload => {
-                    setRegisteredUsers(prevUsers => prevUsers.map(user => user.id === payload.new.id ? payload.new : user));
-                    console.log('Usuario actualizado en tiempo real:', payload.new);
-                })
-                .on('DELETE', payload => {
-                    setRegisteredUsers(prevUsers => prevUsers.filter(user => user.id !== payload.old.id));
-                    console.log('Usuario eliminado en tiempo real:', payload.old);
-                })
-                .subscribe();
-
-            // Initial fetch of users
-            const fetchInitialUsers = async () => {
-                const { data, error } = await supabaseClient.from('app_users').select('*');
-                if (error) {
-                    console.error("Error al cargar usuarios desde Supabase:", error);
-                    setError(`Error al cargar usuarios: ${error.message}. Revisa las políticas de RLS de Supabase.`);
-                } else {
-                    setRegisteredUsers(data);
-                    console.log("Usuarios cargados desde Supabase:", data);
-                }
-                setLoadingUsers(false);
-            };
-
-            fetchInitialUsers();
-
-            // Cleanup subscription on component unmount
-            return () => {
-                if (supabaseClient) {
-                    supabaseClient.removeChannel(channel);
-                }
-            };
-          }, [supabaseClient]); // Re-run when supabaseClient is ready
-
-          // Handle login attempt
-          const handleLogin = async (e) => {
+          // Handle login attempt (now only uses local mockUsers)
+          const handleLogin = (e) => {
             e.preventDefault();
             setError(null); // Clear previous errors
 
-            if (!supabaseClient) {
-                setError("El cliente Supabase no está inicializado. No se puede iniciar sesión.");
-                return;
-            }
+            const foundUser = registeredUsers.find(u => u.username === username && u.password === password);
 
-            // 1. Try logging in with mock users first (for hardcoded admin, direccion, etc.)
-            const mockUser = mockUsers.find(u => u.username === username && u.password === password);
-            if (mockUser) {
-              setUserType(mockUser.type);
+            if (foundUser) {
+              setUserType(foundUser.type);
               setError(null);
-              return;
-            }
-
-            // 2. If not a mock user, try logging in with Supabase Auth (assuming username is email)
-            try {
-                const { data, error: authError } = await supabaseClient.auth.signInWithPassword({
-                    email: username,
-                    password: password,
-                });
-
-                if (authError) {
-                    setError(`Error de inicio de sesión: ${authError.message}`);
-                    return;
-                }
-
-                // If Supabase login successful, fetch user type from app_users table
-                const { data: profile, error: profileError } = await supabaseClient
-                    .from('app_users')
-                    .select('type')
-                    .eq('id', data.user.id)
-                    .single();
-
-                if (profileError) {
-                    console.error("Error al obtener el perfil del usuario desde Supabase:", profileError);
-                    setError("Inicio de sesión exitoso, pero no se pudo cargar el tipo de usuario.");
-                    setUserType('sub distribuidor'); // Fallback to a default type
-                    return;
-                }
-
-                setUserType(profile.type);
-                setError(null);
-
-            } catch (e) {
-                console.error("Error inesperado durante el inicio de sesión:", e);
-                setError("Ocurrió un error inesperado durante el inicio de sesión.");
+              console.log(`Usuario ${foundUser.username} (${foundUser.type}) ha iniciado sesión.`);
+            } else {
+              setError("Nombre de usuario o contraseña incorrectos.");
             }
           };
 
-          // Handle logout
-          const handleLogout = async () => {
-            if (supabaseClient) {
-                const { error } = await supabaseClient.auth.signOut();
-                if (error) {
-                    console.error("Error al cerrar sesión en Supabase:", error);
-                }
-            }
+          // Handle logout (local management)
+          const handleLogout = () => {
             setUserType(null);
             setUsername('');
             setPassword('');
@@ -263,6 +151,7 @@
             setNewUserEmail('');
             setNewUserPassword('');
             setNewUserType('sub distribuidor');
+            console.log("Sesión cerrada.");
           };
 
           // Handle CSV file upload
@@ -319,63 +208,34 @@
             }
           };
 
-          // Handle creating a new user (Admin only)
-          const handleCreateUser = async () => {
-            if (!supabaseClient) {
-                setError("El cliente Supabase no está inicializado. No se puede crear el usuario.");
-                return;
-            }
+          // Handle creating a new user (Admin only - now local, not persistent)
+          const handleCreateUser = () => {
             if (!newUsername || !newUserEmail || !newUserPassword) {
               setError('Todos los campos (usuario, email, contraseña) son obligatorios.');
               return;
             }
-            if (mockUsers.some(u => u.username === newUsername) || registeredUsers.some(u => u.username === newUsername)) {
+            if (registeredUsers.some(u => u.username === newUsername)) {
               setError('Este nombre de usuario ya existe. Por favor, elige otro.');
               return;
             }
 
-            try {
-              // 1. Create user in Supabase Auth
-              const { data: authData, error: authError } = await supabaseClient.auth.signUp({
-                email: newUserEmail,
-                password: newUserPassword,
-                options: {
-                    data: {
-                        username: newUsername,
-                        user_type: newUserType
-                    }
-                }
-              });
+            const newUser = {
+              id: `local-user-${Date.now()}`, // Simple unique ID for local users
+              username: newUsername,
+              email: newUserEmail,
+              password: newUserPassword, // In a real app, NEVER store passwords like this!
+              type: newUserType,
+            };
 
-              if (authError) {
-                setError(`Error al registrar usuario en Supabase Auth: ${authError.message}`);
-                return;
-              }
-              // Supabase automatically inserts into auth.users. Now insert into app_users table.
-              if (authData.user) {
-                  const { data: profileData, error: profileError } = await supabaseClient.from('app_users').insert([
-                    { id: authData.user.id, username: newUsername, type: newUserType }
-                  ]);
-
-                  if (profileError) {
-                    console.error("Error al insertar perfil de usuario en app_users:", profileError);
-                    // Consider rolling back the auth.signUp if profile creation fails
-                    setError(`Error al crear el perfil de usuario: ${profileError.message}`);
-                    return;
-                  }
-              }
-
-
-              setNewUsername('');
-              setNewUserEmail('');
-              setNewUserPassword('');
-              setNewUserType('sub distribuidor');
-              setError(null);
-              console.log("Usuario creado con éxito en Supabase Auth y app_users.");
-            } catch (e) {
-              console.error("Error inesperado al crear usuario:", e);
-              setError("Ocurrió un error inesperado al crear el usuario.");
-            }
+            setRegisteredUsers(prevUsers => [...prevUsers, newUser]);
+            setNewUsername('');
+            setNewUserEmail('');
+            setNewUserPassword('');
+            setNewUserType('sub distribuidor');
+            setError(null);
+            console.log("Usuario creado localmente (no persistente):", newUser);
+            // Add a temporary message to inform the user about non-persistence
+            alert("Usuario creado localmente. ¡Atención! Este usuario no se guardará y desaparecerá al recargar la página.");
           };
 
           // Get the columns to display based on the current userType
@@ -393,16 +253,10 @@
                           <span className="block sm:inline"> {error}</span>
                       </div>
                   )}
-                  {supabaseInitError && ( // Display specific Supabase init error
-                      <div className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded-md mb-4" role="alert">
-                          <strong className="font-bold">Configuración Supabase:</strong>
-                          <span className="block sm:inline"> {supabaseInitError}</span>
-                      </div>
-                  )}
                   <form onSubmit={handleLogin}>
                     <div className="mb-6">
                       <label htmlFor="username" className="block text-gray-700 text-sm font-semibold mb-2">
-                        Usuario (o Email para usuarios Supabase)
+                        Usuario
                       </label>
                       <input
                         type="text"
@@ -443,8 +297,6 @@
                     distribuidor / password123 (Distribuidor)
                     <br />
                     subdistribuidor / password123 (Sub Distribuidor)
-                    <br />
-                    <span className="font-semibold text-blue-700">Para usuarios creados por el administrador:</span> usa el email y la contraseña que definiste al crearlos.
                   </p>
                 </div>
               </div>
@@ -470,7 +322,10 @@
 
                 {userType === 'admin' && (
                   <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200 flex flex-col gap-6">
-                    <h3 className="text-2xl font-bold text-gray-800 mb-4">Gestión de Usuarios</h3>
+                    <h3 className="text-2xl font-bold text-gray-800 mb-4">Gestión de Usuarios (Local)</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                        <strong className="text-red-500">Nota:</strong> Los usuarios creados aquí son solo para demostración y no se guardarán de forma permanente. Desaparecerán al recargar la página.
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                       <div>
                         <label htmlFor="new-username" className="block text-gray-700 text-sm font-semibold mb-2">
@@ -487,7 +342,7 @@
                       </div>
                       <div>
                         <label htmlFor="new-user-email" className="block text-gray-700 text-sm font-semibold mb-2">
-                          Email
+                          Email (solo para visualización)
                         </label>
                         <input
                           type="email"
@@ -538,9 +393,9 @@
                     </div>
                     {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
 
-                    <h4 className="text-xl font-bold text-gray-700 mb-2">Usuarios Registrados</h4>
+                    <h4 className="text-xl font-bold text-gray-700 mb-2">Usuarios Registrados (Local)</h4>
                     <div className="overflow-x-auto">
-                      {loadingUsers ? (
+                      {loadingUsers ? ( // loadingUsers will always be false now
                         <p className="text-center text-gray-600 py-4">Cargando usuarios...</p>
                       ) : (
                         <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -556,30 +411,20 @@
                                 Tipo
                               </th>
                               <th className="py-2 px-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                                ID (Supabase)
+                                ID (Local)
                               </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {/* Display mock users first (they don't have Supabase IDs) */}
-                            {mockUsers.map((user, index) => (
-                              <tr key={`mock-${index}`} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
-                                <td className="py-2 px-3 whitespace-nowrap text-gray-800 border-b">{user.username}</td>
-                                <td className="py-2 px-3 whitespace-nowrap text-gray-700 border-b">N/A</td>
-                                <td className="py-2 px-3 whitespace-nowrap text-gray-700 border-b capitalize">{user.type}</td>
-                                <td className="py-2 px-3 whitespace-nowrap text-gray-500 text-xs border-b">N/A (Mock)</td>
-                              </tr>
-                            ))}
-                            {/* Display users from Supabase */}
                             {registeredUsers.map((user, index) => (
-                              <tr key={user.id} className={`${(mockUsers.length + index) % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
+                              <tr key={user.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
                                 <td className="py-2 px-3 whitespace-nowrap text-gray-800 border-b">{user.username}</td>
                                 <td className="py-2 px-3 whitespace-nowrap text-gray-700 border-b">{user.email || 'N/A'}</td>
                                 <td className="py-2 px-3 whitespace-nowrap text-gray-700 border-b capitalize">{user.type}</td>
                                 <td className="py-2 px-3 whitespace-nowrap text-gray-500 text-xs border-b">{user.id}</td>
                               </tr>
                             ))}
-                            {registeredUsers.length === 0 && mockUsers.length === 0 && (
+                            {registeredUsers.length === 0 && (
                               <tr>
                                 <td colSpan="4" className="py-4 text-center text-gray-500">No hay usuarios registrados.</td>
                               </tr>
@@ -626,12 +471,10 @@
                         <tr>
                           {/* Render table headers based on columnVisibility for the current userType */}
                           {columnsToDisplay.length > 0 ? (
-                              allColumns.map(col => (
-                                columnsToDisplay.some(visibleColKey => visibleColKey === col.key) && (
+                              columnsToDisplay.map(col => ( // Direct map over columnsToDisplay
                                   <th key={col.key} className="py-3 px-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b">
                                     {col.label}
                                   </th>
-                                )
                               ))
                           ) : (
                               <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b" colSpan={allColumns.length}>
@@ -645,15 +488,13 @@
                           <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
                             {/* Render table cells based on columnVisibility for the current userType */}
                             {columnsToDisplay.length > 0 ? (
-                                allColumns.map(col => (
-                                  columnsToDisplay.some(visibleColKey => visibleColKey === col.key) && (
+                                columnsToDisplay.map(col => ( // Direct map over columnsToDisplay
                                     <td key={`${item.id}-${col.key}`} className="py-3 px-4 whitespace-nowrap text-gray-800 border-b">
                                       {/* Format price columns to 2 decimal places */}
                                       {col.key.startsWith('Precio') || col.key === 'Utilidad DS'
                                         ? `$${item[col.key] ? parseFloat(item[col.key]).toFixed(2) : '0.00'}`
                                         : item[col.key]}
                                     </td>
-                                  )
                                 ))
                             ) : (
                                 <td colSpan={allColumns.length} className="py-4 text-center text-gray-500">
@@ -675,30 +516,7 @@
 
         // Mount the React application to the 'root' div AFTER the window has loaded
         window.onload = function() {
-            console.log("window.onload ha sido disparado.");
-            console.log("Tipo de Supabase en window.onload:", typeof Supabase);
-            console.log("Objeto Supabase en window.onload:", window.Supabase);
-
-            // Final check before rendering React app
-            if (typeof Supabase === 'undefined') {
-                const rootDiv = document.getElementById('root');
-                if (rootDiv) {
-                    rootDiv.innerHTML = `
-                        <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: #fef2f2; color: #ef4444; padding: 20px; text-align: center; font-family: 'Inter', sans-serif; border: 1px solid #ef4444; border-radius: 8px; margin: 20px;">
-                            <p>
-                                <strong>Error Crítico:</strong> La librería de Supabase no se ha cargado correctamente.
-                                <br/>
-                                Por favor, revisa tu conexión a internet y las herramientas de desarrollador del navegador (pestaña "Network")
-                                para asegurarte de que el CDN de Supabase (<code style="background-color: #fee2e2; padding: 2px 4px; border-radius: 4px;">https://unpkg.com/@supabase/supabase-js@2</code>)
-                                se esté cargando sin errores.
-                            </p>
-                        </div>
-                    `;
-                }
-                console.error("Critical Error: Supabase library is not loaded. Cannot render React application.");
-            } else {
-                ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-            }
+            ReactDOM.createRoot(document.getElementById('root')).render(<App />);
         };
     </script>
 </body>
