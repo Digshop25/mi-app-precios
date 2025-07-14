@@ -137,7 +137,7 @@
                 'Codigo SAP',
                 'Color',
                 'Precio Publico (IVA incluido)',
-                'Precio subdistribuidor (IVA Incluido)', // Added for 'distribuidor'
+                'Precio subdistribuidor (IVA Incluido)',
                 'Inicio de Vigencia',
                 'Fin de Vigencia'
             ],
@@ -450,9 +450,13 @@
           return (
             <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8 font-inter">
               <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-custom-strong overflow-hidden border border-gray-200">
-                <header className="bg-gradient-to-r from-blue-600 to-purple-700 p-6 flex items-center text-white shadow-custom-medium">
-                  <h1 className="text-3xl sm:text-4xl font-extrabold text-shadow-lg flex-grow text-center">Lista de Precios</h1>
-                  <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4 ml-auto">
+                <header className="bg-gradient-to-r from-blue-600 to-purple-700 p-6 flex justify-between items-center text-white shadow-custom-medium">
+                  {/* Title centered within its own flex-grow container */}
+                  <div className="flex-grow text-center">
+                    <h1 className="text-3xl sm:text-4xl font-extrabold text-shadow-lg inline-block">Lista de Precios</h1>
+                  </div>
+                  {/* User info and logout button, aligned to the right */}
+                  <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
                     <span className="text-lg sm:text-xl font-light">Bienvenido, <span className="font-bold capitalize">{userType}</span>!</span>
                     <button
                       onClick={handleLogout}
