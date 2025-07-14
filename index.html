@@ -17,8 +17,8 @@
         }
     </style>
 
-    <!-- Supabase CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Supabase CDN (Changed to unpkg.com) -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <!-- React CDN -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -675,6 +675,10 @@
 
         // Mount the React application to the 'root' div AFTER the window has loaded
         window.onload = function() {
+            console.log("window.onload ha sido disparado.");
+            console.log("Tipo de Supabase en window.onload:", typeof Supabase);
+            console.log("Objeto Supabase en window.onload:", window.Supabase);
+
             // Final check before rendering React app
             if (typeof Supabase === 'undefined') {
                 const rootDiv = document.getElementById('root');
@@ -685,7 +689,7 @@
                                 <strong>Error Crítico:</strong> La librería de Supabase no se ha cargado correctamente.
                                 <br/>
                                 Por favor, revisa tu conexión a internet y las herramientas de desarrollador del navegador (pestaña "Network")
-                                para asegurarte de que el CDN de Supabase (<code style="background-color: #fee2e2; padding: 2px 4px; border-radius: 4px;">https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2</code>)
+                                para asegurarte de que el CDN de Supabase (<code style="background-color: #fee2e2; padding: 2px 4px; border-radius: 4px;">https://unpkg.com/@supabase/supabase-js@2</code>)
                                 se esté cargando sin errores.
                             </p>
                         </div>
