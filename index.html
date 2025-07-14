@@ -137,6 +137,7 @@
                 'Codigo SAP',
                 'Color',
                 'Precio Publico (IVA incluido)',
+                'Precio subdistribuidor (IVA Incluido)', // Added for 'distribuidor'
                 'Inicio de Vigencia',
                 'Fin de Vigencia'
             ],
@@ -151,7 +152,7 @@
 
         // !!! IMPORTANT: REPLACE THIS URL WITH THE RAW URL OF YOUR CSV FILE ON GITHUB !!!
         // Example: https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/YOUR_FILE.csv
-        const DEFAULT_CSV_URL = 'https://github.com/Digshop25/mi-app-precios/raw/refs/heads/main/Lista%2028a%20MOD%202.csv'; // Reemplaza esta URL con la tuya real
+        const DEFAULT_CSV_URL = 'https://raw.githubusercontent.com/Digshop25/mi-app-precios/main/Lista%2028a%20MOD%202.csv'; // Reemplaza esta URL con la tuya real
 
         // Main App component
         function App() {
@@ -167,6 +168,10 @@
           const [newUserType, setNewUserType] = React.useState('sub distribuidor');
           const [loadingUsers, setLoadingUsers] = React.useState(false);
           const [csvLoading, setCsvLoading] = React.useState(false); // State for CSV loading indicator
+
+          // New states for search/filter
+          const [selectedBrand, setSelectedBrand] = React.useState(''); // '' means all brands
+          const [searchTerm, setSearchTerm] = React.useState('');
 
           React.useEffect(() => {
             setLoadingUsers(false);
@@ -317,6 +322,9 @@
             setNewUserEmail('');
             setNewUserPassword('');
             setNewUserType('sub distribuidor');
+            // Reset filter states on logout
+            setSelectedBrand('');
+            setSearchTerm('');
             console.log("Sesión cerrada.");
           };
 
@@ -347,6 +355,32 @@
             console.log("Usuario creado localmente (no persistente):", newUser);
             alert("Usuario creado localmente. ¡Atención! Este usuario no se guardará y desaparecerá al recargar la página.");
           };
+
+          // Memoized list of unique brands for the dropdown
+          const uniqueBrands = React.useMemo(() => {
+            const brands = new Set();
+            priceData.forEach(item => {
+              if (item.Marca) {
+                brands.add(item.Marca);
+              }
+            });
+            return ['', ...Array.from(brands).sort()]; // Add empty string for "All Brands" option
+          }, [priceData]);
+
+          // Memoized filtered price data based on selected brand and search term
+          const filteredPriceData = React.useMemo(() => {
+            return priceData.filter(item => {
+              const matchesBrand = selectedBrand === '' || item.Marca === selectedBrand;
+              const lowerCaseSearchTerm = searchTerm.toLowerCase();
+
+              // Check if search term matches in 'Equipo' or 'Codigo SAP'
+              const matchesSearchTerm = searchTerm === '' ||
+                                        (item.Equipo && item.Equipo.toLowerCase().includes(lowerCaseSearchTerm)) ||
+                                        (item['Codigo SAP'] && item['Codigo SAP'].toLowerCase().includes(lowerCaseSearchTerm));
+              return matchesBrand && matchesSearchTerm;
+            });
+          }, [priceData, selectedBrand, searchTerm]);
+
 
           const columnsToDisplay = userType ? allColumns.filter(col => columnVisibility[userType] && columnVisibility[userType].includes(col.key)) : [];
 
@@ -549,8 +583,6 @@
                   </div>
                 )}
 
-                {/* Removed CSV URL input and button, now it's automatic */}
-                {/* Removed the file input as well */}
                 {csvLoading && (
                     <div className="p-4 sm:p-6 lg:p-8 bg-blue-50 border-b border-blue-200 flex items-center justify-center gap-4 rounded-b-xl">
                         <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -567,6 +599,41 @@
                     </div>
                 )}
 
+                {/* Search/Filter Module */}
+                <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-start gap-4">
+                    <div className="w-full sm:w-auto flex-grow">
+                        <label htmlFor="brand-select" className="block text-gray-700 text-sm font-semibold mb-2">
+                            Filtrar por Marca:
+                        </label>
+                        <select
+                            id="brand-select"
+                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
+                            value={selectedBrand}
+                            onChange={(e) => setSelectedBrand(e.target.value)}
+                            aria-label="Seleccionar Marca"
+                        >
+                            <option value="">Todas las Marcas</option>
+                            {uniqueBrands.map(brand => (
+                                <option key={brand} value={brand}>{brand}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="w-full sm:w-auto flex-grow">
+                        <label htmlFor="model-search" className="block text-gray-700 text-sm font-semibold mb-2">
+                            Buscar por Modelo o Código SAP:
+                        </label>
+                        <input
+                            type="text"
+                            id="model-search"
+                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                            placeholder="Ej: Nitro 5, ACN5-001"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            aria-label="Buscar por Modelo de Equipo o Código SAP"
+                        />
+                    </div>
+                </div>
+
                 <div className="p-4 sm:p-6 lg:p-8 overflow-x-auto">
                   {/* Debugging info */}
                   {userType && (
@@ -577,7 +644,7 @@
                   )}
                   {/* End Debugging info */}
 
-                  {priceData.length > 0 ? (
+                  {filteredPriceData.length > 0 ? (
                     <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-custom-light excel-table">
                       <thead>
                         <tr>
@@ -596,7 +663,7 @@
                         </tr>
                       </thead>
                       <tbody>
-                        {priceData.map((item, index) => (
+                        {filteredPriceData.map((item, index) => ( // Use filteredPriceData here
                           <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150 ease-in-out`}>
                             {/* Render table cells based on columnVisibility for the current userType */}
                             {columnsToDisplay.length > 0 ? (
@@ -618,7 +685,7 @@
                       </tbody>
                     </table>
                   ) : (
-                    <p className="text-center text-gray-600 py-8 text-lg bg-gray-50 rounded-lg border border-gray-200 p-4 shadow-sm">No hay datos de precios para mostrar. Por favor, carga un archivo CSV.</p>
+                    <p className="text-center text-gray-600 py-8 text-lg bg-gray-50 rounded-lg border border-gray-200 p-4 shadow-sm">No se encontraron resultados para los filtros aplicados. Por favor, ajusta tu búsqueda.</p>
                   )}
                 </div>
               </div>
