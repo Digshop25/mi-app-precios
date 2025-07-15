@@ -178,8 +178,10 @@
     <!-- Firebase CDN -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; // Added getDocs
+        // Updated imports for Firebase Authentication
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // Updated imports for Firestore
+        import { getFirestore, collection, onSnapshot, addDoc, query, where, getDocs, setDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global variables for Firebase (will be available in the React component scope)
         window.firebaseApp = null;
@@ -188,16 +190,27 @@
         window.firebaseInitialized = false;
         window.appId = 'default-app-id'; // Ensure appId has a default
         window.globalFirebaseError = null; // To store critical errors during initialization
-        // This flag indicates if the global Firebase initialization process is still running
         window.isFirebaseInitializingGlobally = true;
 
-        // Expose Firestore functions globally for the Babel script to use
+        // Expose Firebase functions globally for the Babel script to use
         window.collection = collection;
         window.onSnapshot = onSnapshot;
         window.addDoc = addDoc;
         window.query = query;
         window.where = where;
-        window.getDocs = getDocs; // Expose getDocs for querying
+        window.getDocs = getDocs;
+        window.setDoc = setDoc; // Expose setDoc for creating/updating documents by specific ID
+        window.doc = doc; // Expose doc for document references
+
+        // Expose Firebase Auth functions globally
+        window.getAuth = getAuth;
+        window.signInAnonymously = signInAnonymously;
+        window.signInWithCustomToken = signInWithCustomToken;
+        window.onAuthStateChanged = onAuthStateChanged;
+        window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+        window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
+        window.signOut = signOut;
+
 
         // Initialize Firebase and authenticate
         const initFirebase = async () => {
@@ -231,7 +244,7 @@
                         appId: "1:561816433633:web:64312f4928ae92c40d58a0", // Corregido según tu imagen
                         measurementId: "G-GKQWC526ET" // Añadido desde tu imagen
                     };
-                    currentAppId = firebaseConfig.projectId || 'default-app-id'; // Use project ID as default app ID if available
+                    currentAppId = firebaseConfig.projectId || 'default-app-id';
 
                     console.warn("ADVERTENCIA: Usando configuración de Firebase hardcodeada. Recuerda reemplazar los marcadores de posición con los detalles reales de tu proyecto de Firebase para el despliegue en producción.");
                     console.log("Firebase Config (hardcodeada):", firebaseConfig);
@@ -254,13 +267,23 @@
                 window.auth = authInstance;
                 window.appId = currentAppId;
 
-                if (typeof __initial_auth_token !== 'undefined') {
-                    await signInWithCustomToken(window.auth, __initial_auth_token);
-                    console.log("Signed in with custom token.");
-                } else {
-                    await signInAnonymously(window.auth);
-                    console.log("Signed in anonymously.");
-                }
+                // Handle initial authentication state
+                // This listener will be used by React component to get the user UID
+                onAuthStateChanged(authInstance, (user) => {
+                    if (!user) {
+                        // If no user is logged in, try to sign in anonymously or with custom token
+                        if (typeof __initial_auth_token !== 'undefined') {
+                            signInWithCustomToken(authInstance, __initial_auth_token)
+                                .then(() => console.log("Signed in with custom token."))
+                                .catch(e => console.error("Error signing in with custom token:", e));
+                        } else {
+                            signInAnonymously(authInstance)
+                                .then(() => console.log("Signed in anonymously."))
+                                .catch(e => console.error("Error signing in anonymously:", e));
+                        }
+                    }
+                });
+
 
                 window.firebaseInitialized = true;
                 console.log("Firebase initialized and authenticated successfully.");
@@ -357,19 +380,18 @@
         // Main App component
         function App() {
           const [userType, setUserType] = React.useState(null);
-          const [username, setUsername] = React.useState('');
+          const [email, setEmail] = React.useState(''); // Use email for Firebase Auth
           const [password, setPassword] = React.useState('');
           const [error, setError] = React.useState(null); // General error for login/CSV
           const [priceData, setPriceData] = React.useState(initialMockPriceData);
           const [csvLoading, setCsvLoading] = React.useState(false); // State for CSV loading indicator
 
           // Firestore related states
-          const [registeredUsers, setRegisteredUsers] = React.useState([]); // Users fetched from Firestore
+          const [registeredUsers, setRegisteredUsers] = React.useState([]); // Users fetched from Firestore (roles)
           const [firestoreLoading, setFirestoreLoading] = React.useState(true); // Initial loading for Firestore users
           const [firestoreError, setFirestoreError] = React.useState(null);
           const [userId, setUserId] = React.useState(null); // Firebase Auth UID
           const [firebaseReady, setFirebaseReady] = React.useState(false); // New state for Firebase readiness
-          // isFirebaseInitializing local state now directly reflects the global flag
           const [isFirebaseInitializing, setIsFirebaseInitializing] = React.useState(window.isFirebaseInitializingGlobally);
 
           // New states for initial admin user creation
@@ -378,10 +400,9 @@
           const [adminCreationMessage, setAdminCreationMessage] = React.useState(null);
 
 
-          // New states for new user creation form
-          const [newUsername, setNewUsername] = React.useState('');
-          const [newUserEmail, setNewUserEmail] = React.useState('');
-          const [newUserPassword, setNewUserPassword] = React.useState('');
+          // New states for new user creation form (for admin)
+          const [newEmail, setNewEmail] = React.useState(''); // Use email for new user creation
+          const [newPassword, setNewPassword] = React.useState('');
           const [newUserType, setNewUserType] = React.useState('sub distribuidor');
           const [successMessage, setSuccessMessage] = React.useState(null); // New state for success messages
 
@@ -394,7 +415,6 @@
 
           // Effect for Firebase readiness and global error handling
           React.useEffect(() => {
-            // Function to check and update React states based on global Firebase flags
             const updateFirebaseStates = () => {
                 if (window.globalFirebaseError) {
                     setFirestoreError(window.globalFirebaseError);
@@ -406,83 +426,99 @@
                 if (window.firebaseInitialized) {
                     setFirebaseReady(true);
                     setIsFirebaseInitializing(false);
-                    // Only set up onAuthStateChanged if window.auth is defined and no user is currently logged in
-                    if (window.auth && !window.auth.currentUser) {
-                        const unsubscribeAuth = window.auth.onAuthStateChanged(user => {
-                            if (user) {
-                                setUserId(user.uid);
-                                console.log("Firebase Auth UID:", user.uid);
-                            } else {
-                                setUserId(null);
-                                console.log("No Firebase user logged in (anonymous or custom token needed).");
-                            }
-                        });
-                        return unsubscribeAuth; // Return cleanup function
-                    }
+                    // Listen for authentication state changes
+                    const unsubscribeAuth = window.onAuthStateChanged(window.auth, (user) => {
+                        if (user) {
+                            setUserId(user.uid);
+                            console.log("Firebase Auth UID:", user.uid);
+                            // Fetch user's role from Firestore using UID
+                            const userDocRef = window.doc(window.db, `artifacts/${window.appId}/public/data/users`, user.uid);
+                            window.onSnapshot(userDocRef, (docSnap) => {
+                                if (docSnap.exists()) {
+                                    setUserType(docSnap.data().type);
+                                    console.log("User role from Firestore:", docSnap.data().type);
+                                } else {
+                                    console.warn("User role not found in Firestore for UID:", user.uid);
+                                    setUserType(null); // Or a default 'guest' type
+                                }
+                            }, (err) => {
+                                console.error("Error fetching user role:", err);
+                                setFirestoreError(`Error al cargar el rol de usuario: ${err.message}`);
+                                setUserType(null);
+                            });
+
+                            // Load CSV data after successful login
+                            loadCsvFromUrl(DEFAULT_CSV_URL);
+
+                        } else {
+                            setUserId(null);
+                            setUserType(null);
+                            setPriceData(initialMockPriceData); // Reset price data on logout
+                            console.log("No Firebase user logged in.");
+                        }
+                    });
+                    return unsubscribeAuth; // Return cleanup function for onAuthStateChanged
                 } else if (window.isFirebaseInitializingGlobally) {
                     setIsFirebaseInitializing(true);
-                    // Re-check after a short delay if still initializing globally
                     const timeoutId = setTimeout(updateFirebaseStates, 100);
-                    return () => clearTimeout(timeoutId); // Return cleanup function
+                    return () => clearTimeout(timeoutId);
                 } else {
-                    // If not initialized, no error, and not globally initializing, it means init failed silently.
                     console.warn("Firebase not initialized and not globally initializing. Assuming silent failure.");
                     setIsFirebaseInitializing(false);
                     setFirestoreLoading(false);
                     setFirestoreError("No se pudo conectar a Firebase. Por favor, revisa tu configuración y la consola del navegador.");
                 }
-                return undefined; // No cleanup needed if no listener was set
+                return undefined;
             };
 
-            const unsubscribe = updateFirebaseStates(); // Initial check
+            const unsubscribe = updateFirebaseStates();
 
             return () => {
-                if (unsubscribe) unsubscribe(); // Cleanup auth listener if it was set
+                if (unsubscribe) unsubscribe();
             };
-          }, []); // Empty dependency array means it runs once on mount
+          }, []);
 
 
-          // Effect for fetching users from Firestore in real-time and checking for admin
+          // Effect for fetching registered users (roles) from Firestore for admin view
           React.useEffect(() => {
-            if (firebaseReady && userId && window.db && window.appId) { // Ensure firebase is ready and user is authenticated
+            if (firebaseReady && window.db && window.appId) {
                 setFirestoreLoading(true);
                 setFirestoreError(null);
                 try {
                     // Path for public users data: /artifacts/{appId}/public/data/users
                     const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
-                    const q = window.query(usersCollectionRef); // No orderBy to avoid index issues
+                    const q = window.query(usersCollectionRef);
 
                     const unsubscribeFirestore = window.onSnapshot(q, (snapshot) => {
                         const users = snapshot.docs.map(doc => ({
-                            id: doc.id, // Document ID from Firestore
+                            id: doc.id, // Document ID is now the Firebase Auth UID
                             ...doc.data()
                         }));
                         setRegisteredUsers(users);
                         // Check if an 'admin' user exists in the fetched list
-                        const adminFound = users.some(u => u.username === 'admin' && u.type === 'admin');
+                        const adminFound = users.some(u => u.type === 'admin'); // Check type, not username directly
                         setAdminUserExists(adminFound);
                         setFirestoreLoading(false);
-                        console.log("Usuarios cargados de Firestore:", users);
-                        console.log("Admin user exists:", adminFound);
-                    }, (err) => { // This error handler is for onSnapshot listener itself
-                        console.error("Error fetching users from Firestore (onSnapshot callback):", err);
-                        setFirestoreError(`Error al cargar usuarios de la base de datos: ${err.message}`);
+                        console.log("Usuarios (roles) cargados de Firestore:", users);
+                        console.log("Admin user exists (in roles collection):", adminFound);
+                    }, (err) => {
+                        console.error("Error fetching users (roles) from Firestore (onSnapshot callback):", err);
+                        setFirestoreError(`Error al cargar usuarios (roles) de la base de datos: ${err.message}`);
                         setFirestoreLoading(false);
                     });
 
-                    return () => unsubscribeFirestore(); // Cleanup subscription
-                } catch (e) { // This error handler is for the setup of the listener
-                    console.error("Error setting up Firestore listener (useEffect catch):", e);
-                    setFirestoreError(`Error al configurar la escucha de Firestore: ${e.message}`);
+                    return () => unsubscribeFirestore();
+                } catch (e) {
+                    console.error("Error setting up Firestore listener for user roles (useEffect catch):", e);
+                    setFirestoreError(`Error al configurar la escucha de roles de usuario en Firestore: ${e.message}`);
                     setFirestoreLoading(false);
                 }
-            } else if (!firebaseReady || !userId) {
-                // If Firebase is not ready or user is not logged in, clear users and set loading to false
+            } else if (!firebaseReady) {
                 setRegisteredUsers([]);
                 setFirestoreLoading(false);
-                setAdminUserExists(false); // Assume admin doesn't exist if not ready
+                setAdminUserExists(false);
             }
-          }, [firebaseReady, userId, window.db, window.appId]); // Re-run when firebaseReady, userId, or global Firebase instances are ready
+          }, [firebaseReady, window.db, window.appId]);
 
 
           // Function to clean and parse numerical values from CSV
@@ -536,7 +572,7 @@
 
                   if (missingHeaders.length > 0) {
                     setError(`Error en el CSV: Faltan las siguientes columnas: ${missingHeaders.join(', ')}. Asegúrate de que los nombres de las columnas coincidan exactamente.`);
-                    setPriceData(initialMockPriceData);
+                    setPriceData(initialMockPriceData); // Revert to initial data if CSV is malformed
                     return;
                   }
 
@@ -579,149 +615,160 @@
             }
           };
 
-          // Handle login attempt (NOW uses Firestore for authentication)
+          // Handle login attempt using Firebase Authentication
           const handleLogin = async (e) => {
             e.preventDefault();
             setError(null);
-            setFirestoreLoading(true); // Indicate login process is loading
+            setFirestoreLoading(true);
 
-            if (!firebaseReady || !window.db) {
+            if (!firebaseReady || !window.auth) {
                 setError('Firebase no está listo. Por favor, espera un momento e intenta de nuevo.');
                 setFirestoreLoading(false);
                 return;
             }
 
             try {
-                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
-                // Query Firestore for a user with matching username and password
-                const q = window.query(
-                    usersCollectionRef,
-                    window.where('username', '==', username),
-                    window.where('password', '==', password) // WARNING: Storing passwords in plaintext is INSECURE for production. Use Firebase Auth for real apps.
-                );
-                const querySnapshot = await window.getDocs(q);
-
-                if (!querySnapshot.empty) {
-                    const foundUserDoc = querySnapshot.docs[0].data();
-                    setUserType(foundUserDoc.type);
-                    setError(null);
-                    console.log(`Usuario ${foundUserDoc.username} (${foundUserDoc.type}) ha iniciado sesión desde Firestore.`);
-                    await loadCsvFromUrl(DEFAULT_CSV_URL); // Load CSV after successful login
-                } else {
-                    // Removed fallback to local mock users as per user request.
-                    setError("Nombre de usuario o contraseña incorrectos.");
-                }
+                // Sign in with email and password using Firebase Auth
+                const userCredential = await window.signInWithEmailAndPassword(window.auth, email, password);
+                console.log("Signed in with Firebase Auth:", userCredential.user.uid);
+                // The onAuthStateChanged listener will handle setting userType and loading CSV
             } catch (e) {
-                console.error("Error during login from Firestore:", e);
-                setError(`Error al iniciar sesión: ${e.message}. Por favor, revisa la consola.`);
+                console.error("Error during Firebase Auth login:", e);
+                let errorMessage = "Error al iniciar sesión. Verifica tu correo y contraseña.";
+                if (e.code === 'auth/user-not-found') {
+                    errorMessage = "Usuario no encontrado. Regístrate o verifica el correo.";
+                } else if (e.code === 'auth/wrong-password') {
+                    errorMessage = "Contraseña incorrecta.";
+                } else if (e.code === 'auth/invalid-email') {
+                    errorMessage = "Formato de correo electrónico inválido.";
+                }
+                setError(errorMessage);
             } finally {
-                setFirestoreLoading(false); // Reset loading state after login attempt
+                setFirestoreLoading(false);
             }
           };
 
-          // Function to create the initial admin user in Firestore
+          // Function to create the initial admin user in Firebase Auth and Firestore
           const createInitialAdminUser = async () => {
-            if (!firebaseReady || !window.db || !userId) {
-                setAdminCreationMessage('Firebase no está listo o no hay un usuario autenticado para crear el admin.');
+            if (!firebaseReady || !window.auth || !window.db || !window.appId) {
+                setAdminCreationMessage('Firebase no está listo. Por favor, espera un momento.');
                 return;
             }
             setCreatingAdminUser(true);
             setAdminCreationMessage(null);
-            setError(null); // Clear general error
+            setError(null);
+
+            const adminEmail = 'admin@example.com'; // Default admin email
+            const adminPassword = 'password123'; // Default admin password
 
             try {
-                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
-                // Check if admin already exists to prevent duplicates
-                const q = window.query(usersCollectionRef, window.where('username', '==', 'admin'), window.where('type', '==', 'admin'));
-                const querySnapshot = await window.getDocs(q);
-
-                if (!querySnapshot.empty) {
-                    setAdminCreationMessage('El usuario admin ya existe en Firestore.');
-                    setAdminUserExists(true); // Update state to reflect existence
-                    return;
+                // 1. Check if user already exists in Firebase Auth
+                // Note: Firebase Auth doesn't have a direct "check if user exists by email" API for client-side
+                // without trying to create or sign in. We'll try to create, and if it fails, it means it exists.
+                let userCredential;
+                try {
+                    userCredential = await window.createUserWithEmailAndPassword(window.auth, adminEmail, adminPassword);
+                    console.log("Admin user created in Firebase Auth.");
+                } catch (e) {
+                    if (e.code === 'auth/email-already-in-use') {
+                        console.log("Admin email already in use in Firebase Auth. Attempting to sign in.");
+                        userCredential = await window.signInWithEmailAndPassword(window.auth, adminEmail, adminPassword);
+                    } else {
+                        throw e; // Re-throw other errors
+                    }
                 }
 
-                // Add the admin user
-                await window.addDoc(usersCollectionRef, {
-                    username: 'admin',
-                    password: 'password123', // Default password for initial setup
+                const adminUid = userCredential.user.uid;
+                const userDocRef = window.doc(window.db, `artifacts/${window.appId}/public/data/users`, adminUid);
+
+                // 2. Set the role in Firestore, using the Firebase Auth UID as the document ID
+                await window.setDoc(userDocRef, {
+                    email: adminEmail,
                     type: 'admin',
                     createdAt: new Date(),
-                    createdBy: userId // Record who created this user (anonymous user ID)
-                });
+                    // No password field here, Firebase Auth handles it
+                }, { merge: true }); // Use merge: true to avoid overwriting existing fields if any
+
                 setAdminUserExists(true);
-                setAdminCreationMessage('Usuario admin creado con éxito en Firestore. Ahora puedes iniciar sesión.');
-                // Optionally set username/password fields for convenience
-                setUsername('admin');
-                setPassword('password123');
+                setAdminCreationMessage('Usuario admin creado/verificado con éxito. Ahora puedes iniciar sesión con admin@example.com y password123.');
+                setEmail(adminEmail);
+                setPassword(adminPassword);
             } catch (e) {
                 console.error("Error creating initial admin user:", e);
-                setAdminCreationMessage(`Error al crear el usuario admin: ${e.message}. Revisa las reglas de seguridad de Firestore.`);
+                let errorMessage = `Error al crear el usuario admin: ${e.message}.`;
+                if (e.code === 'auth/weak-password') {
+                    errorMessage = "La contraseña es muy débil. Debe tener al menos 6 caracteres.";
+                }
+                setAdminCreationMessage(errorMessage);
             } finally {
                 setCreatingAdminUser(false);
             }
           };
 
 
-          // Handle logout
-          const handleLogout = () => {
-            setUserType(null);
-            setUsername('');
-            setPassword('');
-            setError(null);
-            setPriceData(initialMockPriceData); // Reset data on logout
-            setNewUsername('');
-            setNewUserEmail('');
-            setNewUserPassword('');
-            setNewUserType('sub distribuidor');
-            // Reset filter states on logout
-            setSelectedBrand('');
-            setSearchTerm('');
-            setSelectedItems(new Set()); // Clear selected items on logout
-            console.log("Sesión cerrada.");
+          // Handle logout using Firebase Authentication
+          const handleLogout = async () => {
+            try {
+                if (window.auth) {
+                    await window.signOut(window.auth);
+                    console.log("Signed out from Firebase Auth.");
+                }
+                // State resets are handled by onAuthStateChanged listener
+            } catch (e) {
+                console.error("Error during Firebase Auth logout:", e);
+                setError(`Error al cerrar sesión: ${e.message}`);
+            }
           };
 
+          // Handle creating a new user (admin functionality)
           const handleCreateUser = async () => {
-            if (!newUsername || !newUserEmail || !newUserPassword) {
-              setError('Todos los campos (usuario, email, contraseña) son obligatorios.');
-              return;
-            }
-            if (registeredUsers.some(u => u.username === newUsername)) {
-              setError('Este nombre de usuario ya existe. Por favor, elige otro.');
+            if (!newEmail || !newPassword || !newUserType) {
+              setError('Todos los campos (correo, contraseña, tipo) son obligatorios.');
               return;
             }
 
-            if (!window.db || !userId) {
-                setFirestoreError('La base de datos no está lista o no hay un usuario autenticado. Por favor, intenta de nuevo en unos segundos.');
+            if (!firebaseReady || !window.auth || !window.db || !userId) {
+                setFirestoreError('La base de datos o autenticación no están listas. Por favor, intenta de nuevo en unos segundos.');
                 return;
             }
 
             setFirestoreLoading(true);
             setFirestoreError(null);
-            setSuccessMessage(null); // Clear previous success messages
+            setSuccessMessage(null);
 
             try {
-                // Add user to Firestore
-                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
-                await window.addDoc(usersCollectionRef, {
-                    username: newUsername,
-                    email: newUserEmail,
-                    password: newUserPassword, // WARNING: Storing passwords in plaintext is INSECURE for production. Use Firebase Auth for real apps.
+                // 1. Create user in Firebase Authentication
+                const userCredential = await window.createUserWithEmailAndPassword(window.auth, newEmail, newPassword);
+                const newUserUid = userCredential.user.uid;
+                console.log("New user created in Firebase Auth:", newUserUid);
+
+                // 2. Store user role in Firestore, using the Firebase Auth UID as the document ID
+                const userDocRef = window.doc(window.db, `artifacts/${window.appId}/public/data/users`, newUserUid);
+                await window.setDoc(userDocRef, {
+                    email: newEmail,
                     type: newUserType,
                     createdAt: new Date(),
-                    createdBy: userId // Record who created this user
+                    createdBy: userId // Admin's UID who created this user
                 });
+                console.log("New user role stored in Firestore:", newUserUid);
 
-                setNewUsername('');
-                setNewUserEmail('');
-                setNewUserPassword('');
+                setNewEmail('');
+                setNewPassword('');
                 setNewUserType('sub distribuidor');
                 setError(null);
-                setSuccessMessage("Usuario creado en la base de datos con éxito.");
-                setTimeout(() => setSuccessMessage(null), 5000); // Clear after 5 seconds
+                setSuccessMessage("Usuario creado con éxito en Firebase Authentication y Firestore.");
+                setTimeout(() => setSuccessMessage(null), 5000);
             } catch (e) {
-                console.error("Error creating user in Firestore:", e);
-                setFirestoreError(`Error al crear el usuario en la base de datos: ${e.message}`);
+                console.error("Error creating user:", e);
+                let errorMessage = `Error al crear el usuario: ${e.message}.`;
+                if (e.code === 'auth/email-already-in-use') {
+                    errorMessage = "El correo electrónico ya está en uso por otra cuenta.";
+                } else if (e.code === 'auth/weak-password') {
+                    errorMessage = "La contraseña es muy débil. Debe tener al menos 6 caracteres.";
+                } else if (e.code === 'auth/invalid-email') {
+                    errorMessage = "Formato de correo electrónico inválido.";
+                }
+                setFirestoreError(errorMessage);
             } finally {
                 setFirestoreLoading(false);
             }
@@ -835,7 +882,7 @@
               <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-white p-4 font-inter">
                 <div className="card-modern w-full max-w-md">
                   <h2 className="text-3xl font-bold text-center text-gray-800 mb-4">LISTA DE PRECIOS DS</h2>
-                  <p className="text-center text-gray-600 text-md mb-8">Bienvenido, favor de ingresar su usuario y contraseña para ver la lista de precios</p>
+                  <p className="text-center text-gray-600 text-md mb-8">Bienvenido, favor de ingresar su correo y contraseña para ver la lista de precios</p>
 
                   {isFirebaseInitializing && !firestoreError && ( // Show this while Firebase is truly initializing
                         <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
@@ -865,17 +912,17 @@
                     <>
                         <form onSubmit={handleLogin}>
                         <div className="mb-6">
-                            <label htmlFor="username" className="block text-gray-700 text-sm font-semibold mb-2">
-                            Usuario
+                            <label htmlFor="email" className="block text-gray-700 text-sm font-semibold mb-2">
+                            Correo Electrónico
                             </label>
                             <input
-                            type="text"
-                            id="username"
+                            type="email"
+                            id="email"
                             className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                             required
-                            aria-label="Usuario"
+                            aria-label="Correo Electrónico"
                             />
                         </div>
                         <div className="mb-6">
@@ -901,7 +948,7 @@
                         </button>
                         </form>
 
-                        {!adminUserExists && !creatingAdminUser && firebaseReady && userId && (
+                        {!adminUserExists && !creatingAdminUser && firebaseReady && (
                             <div className="mt-6 text-center">
                                 {adminCreationMessage && (
                                     <div className={`px-4 py-2 rounded-md mb-3 text-sm ${adminCreationMessage.includes('éxito') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} border ${adminCreationMessage.includes('éxito') ? 'border-green-400' : 'border-red-400'}`}>
@@ -916,7 +963,7 @@
                                     {creatingAdminUser ? 'Creando Admin...' : 'Crear Usuario Admin Inicial (Solo una vez)'}
                                 </button>
                                 <p className="text-gray-500 text-xs mt-2">
-                                    Si no puedes iniciar sesión, haz clic aquí para crear el usuario 'admin' con contraseña 'password123'.
+                                    Si no puedes iniciar sesión, haz clic aquí para crear el usuario 'admin@example.com' con contraseña 'password123'.
                                 </p>
                             </div>
                         )}
@@ -997,43 +1044,29 @@
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                             <div>
-                                <label htmlFor="new-username" className="block text-gray-700 text-sm font-semibold mb-2">
-                                Nombre de Usuario
-                                </label>
-                                <input
-                                type="text"
-                                id="new-username"
-                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
-                                value={newUsername}
-                                onChange={(e) => setNewUsername(e.target.value)}
-                                placeholder="Ej: juan.perez"
-                                aria-label="Nombre de Usuario"
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="new-user-email" className="block text-gray-700 text-sm font-semibold mb-2">
-                                Email (solo para visualización)
+                                <label htmlFor="new-email" className="block text-gray-700 text-sm font-semibold mb-2">
+                                Correo Electrónico
                                 </label>
                                 <input
                                 type="email"
-                                id="new-user-email"
+                                id="new-email"
                                 className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
-                                value={newUserEmail}
-                                onChange={(e) => setNewUserEmail(e.target.value)}
-                                placeholder="Ej: juan.perez@dominio.com"
-                                aria-label="Email del nuevo usuario"
+                                value={newEmail}
+                                onChange={(e) => setNewEmail(e.target.value)}
+                                placeholder="Ej: nuevo.usuario@dominio.com"
+                                aria-label="Correo Electrónico del nuevo usuario"
                                 />
                             </div>
                             <div>
-                                <label htmlFor="new-user-password" className="block text-gray-700 text-sm font-semibold mb-2">
+                                <label htmlFor="new-password" className="block text-gray-700 text-sm font-semibold mb-2">
                                 Contraseña
                                 </label>
                                 <input
                                 type="password"
-                                id="new-user-password"
+                                id="new-password"
                                 className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
-                                value={newUserPassword}
-                                onChange={(e) => setNewUserPassword(e.target.value)}
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
                                 placeholder="Contraseña segura"
                                 aria-label="Contraseña del nuevo usuario"
                                 />
@@ -1076,31 +1109,27 @@
                                 <thead>
                                     <tr>
                                     <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
-                                        Usuario
-                                    </th>
-                                    <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
                                         Email
                                     </th>
                                     <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
                                         Tipo
                                     </th>
                                     <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
-                                        ID (Firestore)
+                                        ID (Firebase Auth UID)
                                     </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {registeredUsers.map((user, index) => (
                                     <tr key={user.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
-                                        <td className="py-3 px-4 text-gray-800 border-b border-gray-100 table-cell-responsive">{user.username}</td>
-                                        <td className="py-3 px-4 text-gray-700 border-b border-gray-100 table-cell-responsive">{user.email || 'N/A'}</td>
+                                        <td className="py-3 px-4 text-gray-800 border-b border-gray-100 table-cell-responsive">{user.email}</td>
                                         <td className="py-3 px-4 text-gray-700 border-b border-gray-100 capitalize table-cell-responsive">{user.type}</td>
                                         <td className="py-3 px-4 text-gray-500 text-xs border-b border-gray-100 table-cell-responsive">{user.id}</td>
                                     </tr>
                                     ))}
                                     {registeredUsers.length === 0 && (
                                     <tr>
-                                        <td colSpan="4" className="py-4 text-center text-gray-500">No hay usuarios registrados en la base de datos.</td>
+                                        <td colSpan="3" className="py-4 text-center text-gray-500">No hay usuarios registrados en la base de datos.</td>
                                     </tr>
                                     )}
                                 </tbody>
