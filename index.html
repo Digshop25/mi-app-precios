@@ -68,6 +68,54 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- PapaParse CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <!-- Firebase CDN -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase (will be available in the React component scope)
+        window.firebaseApp = null;
+        window.db = null;
+        window.auth = null;
+        window.firebaseInitialized = false;
+
+        // Initialize Firebase and authenticate
+        const initFirebase = async () => {
+            if (window.firebaseInitialized) return;
+
+            try {
+                // __firebase_config and __app_id are provided by the Canvas environment
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+                window.firebaseApp = initializeApp(firebaseConfig);
+                window.db = getFirestore(window.firebaseApp);
+                window.auth = getAuth(window.firebaseApp);
+
+                // Sign in anonymously or with custom token if available
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(window.auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(window.auth);
+                }
+
+                window.firebaseInitialized = true;
+                console.log("Firebase initialized and authenticated.");
+
+                // Make appId globally available for Firestore paths
+                window.appId = appId;
+
+            } catch (e) {
+                console.error("Error initializing Firebase or signing in:", e);
+                // Optionally, set a global error state or display a message
+            }
+        };
+
+        // Call initialization on script load
+        initFirebase();
+    </script>
 </head>
 <body>
     <div id="root"></div>
@@ -83,7 +131,8 @@
         ];
 
         // Hardcoded user data for authentication (local management)
-        const initialMockUsers = [
+        // These are for login validation only. Actual users for admin panel are from Firestore.
+        const localMockLoginUsers = [
           { id: 'mock-admin', username: 'admin', password: 'password123', type: 'admin', email: 'admin@example.com' },
           { id: 'mock-direccion', username: 'direccion', password: 'password123', type: 'direccion', email: 'direccion@example.com' },
           { id: 'mock-distribuidor', username: 'distribuidor', password: 'password123', type: 'distribuidor', email: 'distribuidor@example.com' },
@@ -137,7 +186,7 @@
                 'Codigo SAP',
                 'Color',
                 'Precio Publico (IVA incluido)',
-                'Precio subdistribuidor (IVA Incluido)',
+                'Precio subdistribuidor (IVA Incluido)', // Added for 'distribuidor'
                 'Inicio de Vigencia',
                 'Fin de Vigencia'
             ],
@@ -161,63 +210,113 @@
           const [password, setPassword] = React.useState('');
           const [error, setError] = React.useState(null);
           const [priceData, setPriceData] = React.useState(initialMockPriceData);
-          const [registeredUsers, setRegisteredUsers] = React.useState(initialMockUsers);
+
+          // Firestore related states
+          const [registeredUsers, setRegisteredUsers] = React.useState([]); // Users fetched from Firestore
+          const [firestoreLoading, setFirestoreLoading] = React.useState(true);
+          const [firestoreError, setFirestoreError] = React.useState(null);
+          const [userId, setUserId] = React.useState(null); // Firebase Auth UID
+
+          // New states for new user creation form
           const [newUsername, setNewUsername] = React.useState('');
           const [newUserEmail, setNewUserEmail] = React.useState('');
           const [newUserPassword, setNewUserPassword] = React.useState('');
           const [newUserType, setNewUserType] = React.useState('sub distribuidor');
-          const [loadingUsers, setLoadingUsers] = React.useState(false);
-          const [csvLoading, setCsvLoading] = React.useState(false); // State for CSV loading indicator
 
           // New states for search/filter
           const [selectedBrand, setSelectedBrand] = React.useState(''); // '' means all brands
           const [searchTerm, setSearchTerm] = React.useState('');
 
+          // Effect for Firebase initialization and Auth state change listener
           React.useEffect(() => {
-            setLoadingUsers(false);
-            console.log("Usuarios inicializados localmente:", registeredUsers);
-          }, []);
+            const setupFirebaseListener = () => {
+                if (window.firebaseInitialized && window.auth) {
+                    // Listen for auth state changes to get the user ID
+                    const unsubscribeAuth = window.auth.onAuthStateChanged(user => {
+                        if (user) {
+                            setUserId(user.uid);
+                            console.log("Firebase Auth UID:", user.uid);
+                        } else {
+                            setUserId(null);
+                            console.log("No Firebase user logged in (anonymous or custom token needed).");
+                        }
+                        setFirestoreLoading(false); // Auth state checked, can proceed
+                    });
+                    return () => unsubscribeAuth(); // Cleanup subscription
+                } else {
+                    // If Firebase is not yet initialized, wait for it
+                    const checkFirebaseInterval = setInterval(() => {
+                        if (window.firebaseInitialized && window.auth) {
+                            clearInterval(checkFirebaseInterval);
+                            setupFirebaseListener(); // Re-run setup once initialized
+                        }
+                    }, 100);
+                }
+            };
+
+            setupFirebaseListener();
+          }, []); // Empty dependency array means this runs once on mount
+
+          // Effect for fetching users from Firestore in real-time
+          React.useEffect(() => {
+            if (userId && window.db && window.appId) {
+                setFirestoreLoading(true);
+                setFirestoreError(null);
+                try {
+                    // Path for public users data: /artifacts/{appId}/public/data/users
+                    const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+                    const q = window.query(usersCollectionRef); // No orderBy to avoid index issues
+
+                    const unsubscribeFirestore = window.onSnapshot(q, (snapshot) => {
+                        const users = snapshot.docs.map(doc => ({
+                            id: doc.id, // Document ID from Firestore
+                            ...doc.data()
+                        }));
+                        setRegisteredUsers(users);
+                        setFirestoreLoading(false);
+                        console.log("Usuarios cargados de Firestore:", users);
+                    }, (err) => {
+                        console.error("Error fetching users from Firestore:", err);
+                        setFirestoreError(`Error al cargar usuarios de la base de datos: ${err.message}`);
+                        setFirestoreLoading(false);
+                    });
+
+                    return () => unsubscribeFirestore(); // Cleanup subscription
+                } catch (e) {
+                    console.error("Error setting up Firestore listener:", e);
+                    setFirestoreError(`Error al configurar la escucha de Firestore: ${e.message}`);
+                    setFirestoreLoading(false);
+                }
+            } else if (!userId) {
+                // If userId becomes null (e.g., on logout), clear registered users
+                setRegisteredUsers([]);
+                setFirestoreLoading(false);
+            }
+          }, [userId, window.db, window.appId]); // Re-run when userId or firebase instances are ready
+
 
           // Function to clean and parse numerical values from CSV
           const cleanAndParseFloat = (value) => {
-            console.log(`Original value: "${value}"`);
             if (typeof value !== 'string') {
-                const parsed = parseFloat(value) || 0;
-                console.log(`Not a string, parsed as: ${parsed}`);
-                return parsed;
+                return parseFloat(value) || 0;
             }
 
-            // Remove any character that is not a digit, a comma, a dot, or a hyphen
             let cleanedValue = value.replace(/[^\d.,-]/g, '');
-            console.log(`After initial clean (remove non-numeric, keep .,-): "${cleanedValue}"`);
-
-            // Determine if comma or dot is the decimal separator
-            // If both exist, the last one is typically the decimal
             const hasComma = cleanedValue.includes(',');
             const hasDot = cleanedValue.includes('.');
 
             if (hasComma && hasDot) {
-                // If comma appears after dot, comma is decimal (e.g., "1.234,56")
                 if (cleanedValue.indexOf(',') > cleanedValue.indexOf('.')) {
-                    cleanedValue = cleanedValue.replace(/\./g, ''); // Remove thousands dots
-                    cleanedValue = cleanedValue.replace(/,/g, '.'); // Change decimal comma to dot
-                    console.log(`Both, comma is decimal. Cleaned: "${cleanedValue}"`);
+                    cleanedValue = cleanedValue.replace(/\./g, '');
+                    cleanedValue = cleanedValue.replace(/,/g, '.');
                 } else {
-                    // If dot appears after comma, dot is decimal (e.g., "1,234.56")
-                    cleanedValue = cleanedValue.replace(/,/g, ''); // Remove thousands commas
-                    // Decimal dot is already correct
-                    console.log(`Both, dot is decimal. Cleaned: "${cleanedValue}"`);
+                    cleanedValue = cleanedValue.replace(/,/g, '');
                 }
             } else if (hasComma) {
-                // Only commas, assume it's a decimal comma (e.g., "123,45")
                 cleanedValue = cleanedValue.replace(/,/g, '.');
-                console.log(`Only comma, treated as decimal. Cleaned: "${cleanedValue}"`);
             }
-            // If only dots, assume it's a decimal dot (e.g., "123.45") - no change needed
-            // If no dots or commas, it's an integer or invalid - parseFloat will handle
 
             const parsed = parseFloat(cleanedValue);
-            console.log(`Parsed float: ${parsed}`);
             return isNaN(parsed) ? 0 : parsed;
           };
 
@@ -252,7 +351,6 @@
                   }
 
                   const parsedData = results.data.map((row, index) => {
-                    console.log(`Raw CSV Row ${index + 1}:`, row);
                     const item = {
                         id: index + 1,
                         'Tipo Equipo': row['Tipo Equipo'],
@@ -267,14 +365,12 @@
                         'Fin de Vigencia': row['Fin de Vigencia'],
                         'Utilidad DS': cleanAndParseFloat(row['Utilidad DS']),
                     };
-                    console.log(`Parsed Item ${index + 1}:`, item);
                     return item;
                   });
 
                   if (parsedData.length > 0) {
                     setPriceData(parsedData);
                     setError(null);
-                    console.log("CSV cargado y parseado con éxito. Datos:", parsedData);
                   } else {
                     setError('El archivo CSV está vacío o no contiene datos válidos.');
                     setPriceData(initialMockPriceData);
@@ -293,12 +389,12 @@
             }
           };
 
-          // Handle login attempt
+          // Handle login attempt (still uses local mock users for simplicity of this demo)
           const handleLogin = async (e) => {
             e.preventDefault();
             setError(null);
 
-            const foundUser = registeredUsers.find(u => u.username === username && u.password === password);
+            const foundUser = localMockLoginUsers.find(u => u.username === username && u.password === password);
 
             if (foundUser) {
               setUserType(foundUser.type);
@@ -325,10 +421,11 @@
             // Reset filter states on logout
             setSelectedBrand('');
             setSearchTerm('');
+            // No need to sign out from Firebase anonymous auth, it's session-based
             console.log("Sesión cerrada.");
           };
 
-          const handleCreateUser = () => {
+          const handleCreateUser = async () => {
             if (!newUsername || !newUserEmail || !newUserPassword) {
               setError('Todos los campos (usuario, email, contraseña) son obligatorios.');
               return;
@@ -338,22 +435,38 @@
               return;
             }
 
-            const newUser = {
-              id: `local-user-${Date.now()}`,
-              username: newUsername,
-              email: newUserEmail,
-              password: newUserPassword,
-              type: newUserType,
-            };
+            if (!window.db || !userId) {
+                setError('La base de datos no está lista. Por favor, intenta de nuevo en unos segundos.');
+                return;
+            }
 
-            setRegisteredUsers(prevUsers => [...prevUsers, newUser]);
-            setNewUsername('');
-            setNewUserEmail('');
-            setNewUserPassword('');
-            setNewUserType('sub distribuidor');
-            setError(null);
-            console.log("Usuario creado localmente (no persistente):", newUser);
-            alert("Usuario creado localmente. ¡Atención! Este usuario no se guardará y desaparecerá al recargar la página.");
+            setFirestoreLoading(true);
+            setFirestoreError(null);
+
+            try {
+                // Add user to Firestore
+                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+                await window.addDoc(usersCollectionRef, {
+                    username: newUsername,
+                    email: newUserEmail,
+                    password: newUserPassword, // In a real app, hash this!
+                    type: newUserType,
+                    createdAt: new Date(),
+                    createdBy: userId // Record who created this user
+                });
+
+                setNewUsername('');
+                setNewUserEmail('');
+                setNewUserPassword('');
+                setNewUserType('sub distribuidor');
+                setError(null);
+                alert("Usuario creado en la base de datos con éxito.");
+            } catch (e) {
+                console.error("Error creating user in Firestore:", e);
+                setFirestoreError(`Error al crear el usuario en la base de datos: ${e.message}`);
+            } finally {
+                setFirestoreLoading(false);
+            }
           };
 
           // Memoized list of unique brands for the dropdown
@@ -432,7 +545,7 @@
                     </button>
                   </form>
                   <p className="text-center text-gray-600 text-sm mt-6 leading-relaxed">
-                    <span className="font-semibold text-gray-700">Usuarios de prueba (hardcodeados):</span>
+                    <span className="font-semibold text-gray-700">Usuarios de prueba (hardcodeados para inicio de sesión):</span>
                     <br />
                     <span className="font-medium">admin</span> / password123 <span className="text-gray-500">(Administrador)</span>
                     <br />
@@ -453,7 +566,7 @@
                 <header className="bg-gradient-to-r from-blue-600 to-purple-700 p-6 flex justify-between items-center text-white shadow-custom-medium">
                   {/* Title centered within its own flex-grow container */}
                   <div className="flex-grow text-center">
-                    <h1 className="text-3xl sm:text-4xl font-extrabold text-shadow-lg inline-block">Lista de Precios</h1>
+                    <h1 className="text-3xl sm:text-4xl font-extrabold text-shadow-lg inline-block mx-auto">Lista de Precios</h1>
                   </div>
                   {/* User info and logout button, aligned to the right */}
                   <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
@@ -469,9 +582,26 @@
 
                 {userType === 'admin' && (
                   <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200">
-                    <h3 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-3">Gestión de Usuarios (Local)</h3>
-                    <p className="text-sm text-gray-600 mb-6 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                        <strong className="text-red-600">Atención:</strong> Los usuarios creados aquí son solo para demostración y **no se guardarán de forma permanente**. Desaparecerán al recargar la página.
+                    <h3 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-3">Gestión de Usuarios (Firestore)</h3>
+                    {firestoreLoading && (
+                        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="block sm:inline">Cargando usuarios de la base de datos...</span>
+                        </div>
+                    )}
+                    {firestoreError && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
+                            <strong className="font-bold">Error de la base de datos:</strong>
+                            <span className="block sm:inline"> {firestoreError}</span>
+                        </div>
+                    )}
+                    <p className="text-sm text-gray-600 mb-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <strong className="text-blue-700">Nota:</strong> Los usuarios creados aquí se guardarán permanentemente en Firestore.
+                        <br/>
+                        Tu ID de sesión (para referencia de la base de datos): <code className="font-mono text-xs bg-gray-200 p-1 rounded">{userId || 'Cargando...'}</code>
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                       <div>
@@ -537,17 +667,18 @@
                         <button
                           onClick={handleCreateUser}
                           className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+                          disabled={firestoreLoading}
                         >
-                          Crear Usuario
+                          {firestoreLoading ? 'Creando...' : 'Crear Usuario'}
                         </button>
                       </div>
                     </div>
                     {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
 
-                    <h4 className="text-xl font-bold text-gray-700 mb-4 border-b pb-2">Usuarios Registrados (Local)</h4>
+                    <h4 className="text-xl font-bold text-gray-700 mb-4 border-b pb-2">Usuarios Registrados (Desde Firestore)</h4>
                     <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-custom-light">
-                      {loadingUsers ? (
-                        <p className="text-center text-gray-600 py-4">Cargando usuarios...</p>
+                      {firestoreLoading && registeredUsers.length === 0 ? (
+                        <p className="text-center text-gray-600 py-4">Cargando usuarios de la base de datos...</p>
                       ) : (
                         <table className="min-w-full bg-white excel-table">
                           <thead>
@@ -562,7 +693,7 @@
                                 Tipo
                               </th>
                               <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
-                                ID (Local)
+                                ID (Firestore)
                               </th>
                             </tr>
                           </thead>
@@ -577,7 +708,7 @@
                             ))}
                             {registeredUsers.length === 0 && (
                               <tr>
-                                <td colSpan="4" className="py-4 text-center text-gray-500">No hay usuarios registrados.</td>
+                                <td colSpan="4" className="py-4 text-center text-gray-500">No hay usuarios registrados en la base de datos.</td>
                               </tr>
                             )}
                           </tbody>
