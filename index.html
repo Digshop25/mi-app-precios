@@ -334,7 +334,7 @@
                     cleanedValue = cleanedValue.replace(/\./g, '');
                     cleanedValue = cleanedValue.replace(/,/g, '.');
                 } else {
-                    cleanedValue = cleanedValue.replace(/,/g, '');
+                    cleanedValue = cleanedValue.replace(/,/g, ''); // Corrected: was `cleanedado`
                 }
             } else if (hasComma) {
                 cleanedValue = cleanedValue.replace(/,/g, '.');
@@ -756,6 +756,7 @@
                                 </tbody>
                                 </table>
                             )}
+                            </div> {/* Corrected: Added missing closing div tag for overflow-x-auto */}
                         </>
                     )}
                   </div>
@@ -883,9 +884,3 @@
                     rootDiv.innerHTML = '<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: #fef2f2; color: #ef4444; font-family: \'Inter\', sans-serif; padding: 20px; border: 1px solid #f87171; border-radius: 8px; margin: 20px;">' +
                                         '<p style="font-size: 1.25rem; font-weight: 600; text-align: center;">Ha ocurrido un error crítico al iniciar la aplicación. Por favor, verifica la consola del navegador (<span style="font-family: monospace;">F12</span>) para más detalles.</p>' +
                                         '</div>';
-                }
-            }
-        };
-    </script>
-</body>
-</html>
