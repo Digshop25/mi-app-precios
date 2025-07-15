@@ -119,6 +119,52 @@
                 padding: 0.5rem 0.75rem; /* Adjust padding */
             }
         }
+
+        /* Print specific styles */
+        @media print {
+            body * {
+                visibility: hidden; /* Hide everything by default */
+            }
+            #print-area, #print-area * {
+                visibility: visible; /* Show only the print area */
+            }
+            #print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 20px;
+                box-sizing: border-box;
+            }
+            /* Adjust table styles for print */
+            #print-area .excel-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            #print-area .excel-table th,
+            #print-area .excel-table td {
+                border: 1px solid #ccc;
+                padding: 8px;
+                font-size: 10px; /* Smaller font for print */
+                text-align: left;
+                white-space: normal; /* Allow text wrapping */
+            }
+            #print-area .excel-table th {
+                background-color: #f2f2f2;
+                font-weight: bold;
+                color: #333;
+            }
+            #print-area .excel-table tbody tr:nth-child(even) {
+                background-color: #f9f9f9;
+            }
+            #print-area .excel-table tbody td.text-right {
+                text-align: right;
+            }
+            /* Hide print button in print view */
+            .no-print {
+                display: none;
+            }
+        }
     </style>
 
     <!-- React CDN -->
@@ -342,6 +388,9 @@
           // New states for search/filter
           const [selectedBrand, setSelectedBrand] = React.useState(''); // '' means all brands
           const [searchTerm, setSearchTerm] = React.useState('');
+
+          // New state for selected items for printing
+          const [selectedItems, setSelectedItems] = React.useState(new Set()); // Stores IDs of selected items
 
           // Effect for Firebase readiness and global error handling
           React.useEffect(() => {
@@ -629,6 +678,7 @@
             // Reset filter states on logout
             setSelectedBrand('');
             setSearchTerm('');
+            setSelectedItems(new Set()); // Clear selected items on logout
             console.log("Sesión cerrada.");
           };
 
@@ -677,6 +727,84 @@
                 setFirestoreLoading(false);
             }
           };
+
+          // Handle checkbox change for item selection
+          const handleCheckboxChange = (itemId, isChecked) => {
+            setSelectedItems(prevSelectedItems => {
+              const newSet = new Set(prevSelectedItems);
+              if (isChecked) {
+                newSet.add(itemId);
+              } else {
+                newSet.delete(itemId);
+              }
+              return newSet;
+            });
+          };
+
+          // Handle printing selected items
+          const handlePrintSelected = () => {
+            if (selectedItems.size === 0) {
+              alert('Por favor, selecciona al menos un modelo para imprimir.');
+              return;
+            }
+
+            const itemsToPrint = priceData.filter(item => selectedItems.has(item.id));
+            const columnsForPrint = allColumns.filter(col => columnVisibility[userType] && columnVisibility[userType].includes(col.key));
+
+            let printContent = `
+                <div style="font-family: 'Inter', sans-serif; padding: 20px;">
+                    <h1 style="text-align: center; font-size: 24px; margin-bottom: 20px; color: #333;">Lista de Modelos Seleccionados</h1>
+                    <table class="excel-table" style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                ${columnsForPrint.map(col => `
+                                    <th style="border: 1px solid #ccc; padding: 8px; text-align: ${col.align}; background-color: #f2f2f2; font-weight: bold; font-size: 10px;">
+                                        ${col.label}
+                                    </th>
+                                `).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsToPrint.map((item, index) => `
+                                <tr style="background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
+                                    ${columnsForPrint.map(col => `
+                                        <td style="border: 1px solid #ccc; padding: 8px; font-size: 10px; text-align: ${col.align};">
+                                            ${col.key.startsWith('Precio') || col.key === 'Utilidad DS'
+                                                ? `$${item[col.key] ? parseFloat(item[col.key]).toFixed(2) : '0.00'}`
+                                                : item[col.key]}
+                                        </td>
+                                    `).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            // Create a new window or iframe for printing
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write('<html><head><title>Imprimir Lista</title>');
+            // Copy relevant styles for printing
+            printWindow.document.write(`
+                <style>
+                    body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+                    .excel-table { border-collapse: collapse; width: 100%; }
+                    .excel-table th, .excel-table td { border: 1px solid #ccc; padding: 8px; font-size: 10px; text-align: left; white-space: normal; }
+                    .excel-table th { background-color: #f2f2f2; font-weight: bold; color: #333; text-align: center; }
+                    .excel-table tbody tr:nth-child(even) { background-color: #f9f9f9; }
+                    .excel-table td.text-right { text-align: right; }
+                    h1 { text-align: center; font-size: 24px; margin-bottom: 20px; color: #333; }
+                </style>
+            `);
+            printWindow.document.write('</head><body>');
+            printWindow.document.write(printContent);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            // No need to close the window immediately, user can close it after printing
+          };
+
 
           // Memoized list of unique brands for the dropdown
           const uniqueBrands = React.useMemo(() => {
@@ -1037,6 +1165,15 @@
                             aria-label="Buscar por Modelo de Equipo o Código SAP"
                         />
                     </div>
+                    <div className="w-full sm:w-auto flex-shrink-0 mt-4 sm:mt-0">
+                        <button
+                            onClick={handlePrintSelected}
+                            className="btn-modern w-full bg-green-600 hover:bg-green-700 focus:ring-green-500 no-print"
+                            disabled={selectedItems.size === 0}
+                        >
+                            Imprimir Selección ({selectedItems.size})
+                        </button>
+                    </div>
                 </div>
 
                 <div className="p-4 sm:p-6 lg:p-8 overflow-x-auto">
@@ -1053,6 +1190,9 @@
                     <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-custom-light excel-table">
                       <thead>
                         <tr>
+                          <th className="py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200 bg-gray-100">
+                            Seleccionar
+                          </th>
                           {/* Render table headers based on columnVisibility for the current userType */}
                           {columnsToDisplay.length > 0 ? (
                               columnsToDisplay.map(col => (
@@ -1070,6 +1210,15 @@
                       <tbody>
                         {filteredPriceData.map((item, index) => ( // Use filteredPriceData here
                           <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150 ease-in-out`}>
+                            <td className="py-3 px-4 text-gray-800 border-b border-gray-100 text-sm table-cell-responsive text-center">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedItems.has(item.id)}
+                                    onChange={(e) => handleCheckboxChange(item.id, e.target.checked)}
+                                    className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                                    aria-label={`Seleccionar ${item.Equipo}`}
+                                />
+                            </td>
                             {/* Render table cells based on columnVisibility for the current userType */}
                             {columnsToDisplay.length > 0 ? (
                                 columnsToDisplay.map(col => (
