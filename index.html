@@ -184,15 +184,6 @@
           { id: 5, 'Tipo Equipo': 'Auriculares', Marca: 'Razer', Equipo: 'Kraken X', 'Codigo SAP': 'RZKX-005', Color: 'Verde', 'Precio Publico (IVA incluido)': 160, 'PrecioFacturacion distribuidor (con sim e IVA Incluido)': 140, 'Precio subdistribuidor (IVA Incluido)': 120, 'Inicio de Vigencia': '2024-01-01', 'Fin de Vigencia': '2024-12-31', 'Utilidad DS': 0.12 },
         ];
 
-        // Hardcoded user data for authentication (local management)
-        // This array has been removed as per user request to rely solely on Firestore users.
-        // const localMockLoginUsers = [
-        //   { id: 'mock-admin', username: 'admin', password: 'password123', type: 'admin', email: 'admin@example.com' },
-        //   { id: 'mock-direccion', username: 'direccion', password: 'password123', type: 'direccion', email: 'direccion@example.com' },
-        //   { id: 'mock-distribuidor', username: 'distribuidor', password: 'password123', type: 'distribuidor', email: 'distribuidor@example.com' },
-        //   { id: 'mock-subdistribuidor', password: 'password123', type: 'sub distribuidor', email: 'subdistribuidor@example.com' },
-        // ];
-
         // Define column headers and their display names
         const allColumns = [
             { key: 'Tipo Equipo', label: 'Tipo Equipo' },
@@ -275,6 +266,11 @@
           // isFirebaseInitializing local state now directly reflects the global flag
           const [isFirebaseInitializing, setIsFirebaseInitializing] = React.useState(window.isFirebaseInitializingGlobally);
 
+          // New states for initial admin user creation
+          const [adminUserExists, setAdminUserExists] = React.useState(false);
+          const [creatingAdminUser, setCreatingAdminUser] = React.useState(false);
+          const [adminCreationMessage, setAdminCreationMessage] = React.useState(null);
+
 
           // New states for new user creation form
           const [newUsername, setNewUsername] = React.useState('');
@@ -338,7 +334,7 @@
           }, []); // Empty dependency array means it runs once on mount
 
 
-          // Effect for fetching users from Firestore in real-time
+          // Effect for fetching users from Firestore in real-time and checking for admin
           React.useEffect(() => {
             if (firebaseReady && userId && window.db && window.appId) { // Ensure firebase is ready and user is authenticated
                 setFirestoreLoading(true);
@@ -354,8 +350,12 @@
                             ...doc.data()
                         }));
                         setRegisteredUsers(users);
+                        // Check if an 'admin' user exists in the fetched list
+                        const adminFound = users.some(u => u.username === 'admin' && u.type === 'admin');
+                        setAdminUserExists(adminFound);
                         setFirestoreLoading(false);
                         console.log("Usuarios cargados de Firestore:", users);
+                        console.log("Admin user exists:", adminFound);
                     }, (err) => { // This error handler is for onSnapshot listener itself
                         console.error("Error fetching users from Firestore (onSnapshot callback):", err);
                         setFirestoreError(`Error al cargar usuarios de la base de datos: ${err.message}`);
@@ -372,6 +372,7 @@
                 // If Firebase is not ready or user is not logged in, clear users and set loading to false
                 setRegisteredUsers([]);
                 setFirestoreLoading(false);
+                setAdminUserExists(false); // Assume admin doesn't exist if not ready
             }
           }, [firebaseReady, userId, window.db, window.appId]); // Re-run when firebaseReady, userId, or global Firebase instances are ready
 
@@ -510,6 +511,50 @@
             }
           };
 
+          // Function to create the initial admin user in Firestore
+          const createInitialAdminUser = async () => {
+            if (!firebaseReady || !window.db || !userId) {
+                setAdminCreationMessage('Firebase no está listo o no hay un usuario autenticado para crear el admin.');
+                return;
+            }
+            setCreatingAdminUser(true);
+            setAdminCreationMessage(null);
+            setError(null); // Clear general error
+
+            try {
+                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+                // Check if admin already exists to prevent duplicates
+                const q = window.query(usersCollectionRef, window.where('username', '==', 'admin'), window.where('type', '==', 'admin'));
+                const querySnapshot = await window.getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    setAdminCreationMessage('El usuario admin ya existe en Firestore.');
+                    setAdminUserExists(true); // Update state to reflect existence
+                    return;
+                }
+
+                // Add the admin user
+                await window.addDoc(usersCollectionRef, {
+                    username: 'admin',
+                    password: 'password123', // Default password for initial setup
+                    type: 'admin',
+                    createdAt: new Date(),
+                    createdBy: userId // Record who created this user (anonymous user ID)
+                });
+                setAdminUserExists(true);
+                setAdminCreationMessage('Usuario admin creado con éxito en Firestore. Ahora puedes iniciar sesión.');
+                // Optionally set username/password fields for convenience
+                setUsername('admin');
+                setPassword('password123');
+            } catch (e) {
+                console.error("Error creating initial admin user:", e);
+                setAdminCreationMessage(`Error al crear el usuario admin: ${e.message}. Revisa las reglas de seguridad de Firestore.`);
+            } finally {
+                setCreatingAdminUser(false);
+            }
+          };
+
+
           // Handle logout
           const handleLogout = () => {
             setUserType(null);
@@ -633,45 +678,75 @@
                   )}
 
                   {!isFirebaseInitializing && !firestoreError && ( // Only show form if Firebase is initialized and no critical error
-                    <form onSubmit={handleLogin}>
-                      <div className="mb-6">
-                        <label htmlFor="username" className="block text-gray-700 text-sm font-semibold mb-2">
-                          Usuario
-                        </label>
-                        <input
-                          type="text"
-                          id="username"
-                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          required
-                          aria-label="Usuario"
-                        />
-                      </div>
-                      <div className="mb-6">
-                        <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
-                          Contraseña
-                        </label>
-                        <input
-                          type="password"
-                          id="password"
-                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                          aria-label="Contraseña"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
-                        disabled={firestoreLoading} // Disable button during login attempt
-                      >
-                        {firestoreLoading ? 'Iniciando sesión...' : 'Entrar'}
-                      </button>
-                    </form>
+                    <>
+                        <form onSubmit={handleLogin}>
+                        <div className="mb-6">
+                            <label htmlFor="username" className="block text-gray-700 text-sm font-semibold mb-2">
+                            Usuario
+                            </label>
+                            <input
+                            type="text"
+                            id="username"
+                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            required
+                            aria-label="Usuario"
+                            />
+                        </div>
+                        <div className="mb-6">
+                            <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
+                            Contraseña
+                            </label>
+                            <input
+                            type="password"
+                            id="password"
+                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            aria-label="Contraseña"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+                            disabled={firestoreLoading} // Disable button during login attempt
+                        >
+                            {firestoreLoading ? 'Iniciando sesión...' : 'Entrar'}
+                        </button>
+                        </form>
+
+                        {!adminUserExists && !creatingAdminUser && firebaseReady && userId && (
+                            <div className="mt-6 text-center">
+                                {adminCreationMessage && (
+                                    <div className={`px-4 py-2 rounded-md mb-3 text-sm ${adminCreationMessage.includes('éxito') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} border ${adminCreationMessage.includes('éxito') ? 'border-green-400' : 'border-red-400'}`}>
+                                        {adminCreationMessage}
+                                    </div>
+                                )}
+                                <button
+                                    onClick={createInitialAdminUser}
+                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+                                    disabled={creatingAdminUser || firestoreLoading}
+                                >
+                                    {creatingAdminUser ? 'Creando Admin...' : 'Crear Usuario Admin Inicial (Solo una vez)'}
+                                </button>
+                                <p className="text-gray-500 text-xs mt-2">
+                                    Si no puedes iniciar sesión, haz clic aquí para crear el usuario 'admin' con contraseña 'password123'.
+                                </p>
+                            </div>
+                        )}
+                        {creatingAdminUser && (
+                            <div className="mt-6 text-center text-blue-700 flex items-center justify-center gap-2">
+                                <svg className="animate-spin h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Creando usuario admin...</span>
+                            </div>
+                        )}
+                    </>
                   )}
-                  {/* Removed the hardcoded user display as per user request */}
                 </div>
               </div>
             );
@@ -921,7 +996,7 @@
                           {/* Render table headers based on columnVisibility for the current userType */}
                           {columnsToDisplay.length > 0 ? (
                               columnsToDisplay.map(col => (
-                                  <th key={col.key} className="py-3 px-4 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200 bg-gray-100">
+                                  <th key={col.key} className="py-3 px-4 text-left text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200 bg-gray-100">
                                     {col.label}
                                   </th>
                               ))
