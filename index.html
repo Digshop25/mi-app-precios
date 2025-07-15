@@ -178,7 +178,7 @@
           { id: 'mock-admin', username: 'admin', password: 'password123', type: 'admin', email: 'admin@example.com' },
           { id: 'mock-direccion', username: 'direccion', password: 'password123', type: 'direccion', email: 'direccion@example.com' },
           { id: 'mock-distribuidor', username: 'distribuidor', password: 'password123', type: 'distribuidor', email: 'distribuidor@example.com' },
-          { id: 'mock-subdistribuidor', username: 'subdistribuidor', password: 'password123', type: 'sub distribuidor', email: 'subdistribuidor@example.com' },
+          { id: 'mock-subdistribuidor', password: 'password123', type: 'sub distribuidor', email: 'subdistribuidor@example.com' },
         ];
 
         // Define column headers and their display names
@@ -256,10 +256,11 @@
 
           // Firestore related states
           const [registeredUsers, setRegisteredUsers] = React.useState([]); // Users fetched from Firestore
-          const [firestoreLoading, setFirestoreLoading] = React.useState(true);
+          const [firestoreLoading, setFirestoreLoading] = React.useState(true); // Initial loading for Firestore users
           const [firestoreError, setFirestoreError] = React.useState(null);
           const [userId, setUserId] = React.useState(null); // Firebase Auth UID
           const [firebaseReady, setFirebaseReady] = React.useState(false); // New state for Firebase readiness
+          const [isFirebaseInitializing, setIsFirebaseInitializing] = React.useState(true); // New state for initial Firebase connection
 
           // New states for new user creation form
           const [newUsername, setNewUsername] = React.useState('');
@@ -277,13 +278,15 @@
             // Check for initial global Firebase error set by initFirebase module script
             if (window.globalFirebaseError) {
                 setFirestoreError(window.globalFirebaseError);
-                setFirestoreLoading(false);
+                setIsFirebaseInitializing(false); // Stop initializing if global error
+                setFirestoreLoading(false); // Also stop general firestore loading
                 return; // Stop if there was a critical init error
             }
 
             const checkFirebaseAndAuth = () => {
                 if (window.firebaseInitialized && window.auth && window.db && window.appId) {
                     setFirebaseReady(true);
+                    setIsFirebaseInitializing(false); // Firebase is ready, stop initializing indicator
                     // Listen for auth state changes to get the user ID
                     const unsubscribeAuth = window.auth.onAuthStateChanged(user => {
                         if (user) {
@@ -595,48 +598,70 @@
                 <div className="bg-white p-8 rounded-xl shadow-custom-strong w-full max-w-md border border-gray-200">
                   <h2 className="text-3xl font-bold text-center text-gray-800 mb-4">LISTA DE PRECIOS DS</h2>
                   <p className="text-center text-gray-600 text-md mb-8">Bienvenido, favor de ingresar su usuario y contraseña para ver la lista de precios</p>
+
+                  {isFirebaseInitializing && !firestoreError && ( // Show this while Firebase is truly initializing
+                        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="block sm:inline">Conectando a Firebase...</span>
+                        </div>
+                    )}
+
+                    {firestoreError && ( // Show Firebase init error
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
+                            <strong className="font-bold">Error de conexión:</strong>
+                            <span className="block sm:inline"> {firestoreError}</span>
+                        </div>
+                    )}
+
                   {error && (
                       <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
                           <strong className="font-bold">Error:</strong>
                           <span className="block sm:inline"> {error}</span>
                       </div>
                   )}
-                  <form onSubmit={handleLogin}>
-                    <div className="mb-6">
-                      <label htmlFor="username" className="block text-gray-700 text-sm font-semibold mb-2">
-                        Usuario
-                      </label>
-                      <input
-                        type="text"
-                        id="username"
-                        className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                        aria-label="Usuario"
-                      />
-                    </div>
-                    <div className="mb-6">
-                      <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
-                        Contraseña
-                      </label>
-                      <input
-                        type="password"
-                        id="password"
-                        className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        aria-label="Contraseña"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
-                    >
-                      {firestoreLoading ? 'Iniciando sesión...' : 'Entrar'}
-                    </button>
-                  </form>
+
+                  {!isFirebaseInitializing && !firestoreError && ( // Only show form if Firebase is initialized and no critical error
+                    <form onSubmit={handleLogin}>
+                      <div className="mb-6">
+                        <label htmlFor="username" className="block text-gray-700 text-sm font-semibold mb-2">
+                          Usuario
+                        </label>
+                        <input
+                          type="text"
+                          id="username"
+                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          required
+                          aria-label="Usuario"
+                        />
+                      </div>
+                      <div className="mb-6">
+                        <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
+                          Contraseña
+                        </label>
+                        <input
+                          type="password"
+                          id="password"
+                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          aria-label="Contraseña"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+                        disabled={firestoreLoading} // Disable button during login attempt
+                      >
+                        {firestoreLoading ? 'Iniciando sesión...' : 'Entrar'}
+                      </button>
+                    </form>
+                  )}
                   <p className="text-center text-gray-600 text-sm mt-6 leading-relaxed">
                     <span className="font-semibold text-gray-700">Usuarios de prueba (hardcodeados para inicio de sesión):</span>
                     <br />
