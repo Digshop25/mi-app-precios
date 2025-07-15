@@ -90,6 +90,13 @@
                 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
+                console.log("Firebase Config received:", firebaseConfig); // Added for debugging
+
+                // Explicit check for API key
+                if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === '') {
+                    throw new Error("Firebase API Key is missing or invalid in the configuration.");
+                }
+
                 const app = initializeApp(firebaseConfig);
                 const authInstance = getAuth(app);
                 const dbInstance = getFirestore(app);
@@ -884,3 +891,9 @@
                     rootDiv.innerHTML = '<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: #fef2f2; color: #ef4444; font-family: \'Inter\', sans-serif; padding: 20px; border: 1px solid #f87171; border-radius: 8px; margin: 20px;">' +
                                         '<p style="font-size: 1.25rem; font-weight: 600; text-align: center;">Ha ocurrido un error crítico al iniciar la aplicación. Por favor, verifica la consola del navegador (<span style="font-family: monospace;">F12</span>) para más detalles.</p>' +
                                         '</div>';
+                }
+            }
+        };
+    </script>
+</body>
+</html>
