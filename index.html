@@ -179,15 +179,16 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; // Added getDocs
 
         // Global variables for Firebase (will be available in the React component scope)
         window.firebaseApp = null;
         window.db = null;
         window.auth = null;
         window.firebaseInitialized = false;
-        window.appId = 'default-app-id';
-        window.globalFirebaseError = null;
+        window.appId = 'default-app-id'; // Ensure appId has a default
+        window.globalFirebaseError = null; // To store critical errors during initialization
+        // This flag indicates if the global Firebase initialization process is still running
         window.isFirebaseInitializingGlobally = true;
 
         // Expose Firestore functions globally for the Babel script to use
@@ -196,10 +197,11 @@
         window.addDoc = addDoc;
         window.query = query;
         window.where = where;
-        window.getDocs = getDocs;
+        window.getDocs = getDocs; // Expose getDocs for querying
 
         // Initialize Firebase and authenticate
         const initFirebase = async () => {
+            // Prevent re-initialization if already done or failed critically
             if (window.firebaseInitialized || window.globalFirebaseError || !window.isFirebaseInitializingGlobally) {
                 console.log("Firebase already initialized, failed, or stopped. Skipping re-initialization.");
                 return;
@@ -211,27 +213,31 @@
                 let firebaseConfig = {};
                 let currentAppId = 'default-app-id';
 
+                // Check if __firebase_config is defined (Canvas preview environment)
                 if (typeof __firebase_config !== 'undefined') {
                     firebaseConfig = JSON.parse(__firebase_config);
                     currentAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                     console.log("Firebase Config (from Canvas):", firebaseConfig);
                 } else {
-                    // !!! IMPORTANT: REPLACE THE VALUES BELOW WITH YOUR ACTUAL FIREBASE CONFIGURATION !!!
+                    // For GitHub Pages or local deployment, user needs to provide their actual config
+                    // !!! IMPORTANTE: REEMPLAZA LOS VALORES DE ABAJO CON TU CONFIGURACIÓN REAL DE FIREBASE !!!
+                    // Los valores a continuación son los que proporcionaste en la imagen.
                     firebaseConfig = {
                         apiKey: "AIzaSyBfCD3_opZniAHRXat42APlrhHwh_BpGPg",
                         authDomain: "lista-de-precios-3d4df.firebaseapp.com",
                         projectId: "lista-de-precios-3d4df",
                         storageBucket: "lista-de-precios-3d4df.firebasestorage.app",
                         messagingSenderId: "561816433633",
-                        appId: "1:561816433633:web:64312f4928ae92c40d58a0",
-                        measurementId: "G-GKQWC526ET"
+                        appId: "1:561816433633:web:64312f4928ae92c40d58a0", // Corregido según tu imagen
+                        measurementId: "G-GKQWC526ET" // Añadido desde tu imagen
                     };
-                    currentAppId = firebaseConfig.projectId || 'default-app-id';
+                    currentAppId = firebaseConfig.projectId || 'default-app-id'; // Use project ID as default app ID if available
 
                     console.warn("ADVERTENCIA: Usando configuración de Firebase hardcodeada. Recuerda reemplazar los marcadores de posición con los detalles reales de tu proyecto de Firebase para el despliegue en producción.");
                     console.log("Firebase Config (hardcodeada):", firebaseConfig);
                 }
 
+                // Explicit check for API key
                 if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === 'YOUR_FIREBASE_API_KEY' || firebaseConfig.apiKey === '') {
                     throw new Error("Firebase API Key is missing or invalid in the configuration. Please replace 'YOUR_FIREBASE_API_KEY' with your actual key from Firebase Console.");
                 }
@@ -263,7 +269,7 @@
                 console.error("Error al inicializar Firebase o iniciar sesión:", e);
                 window.globalFirebaseError = `Error crítico al inicializar Firebase: ${e.message}. Por favor, revisa la consola del navegador.`;
             } finally {
-                window.isFirebaseInitializingGlobally = false;
+                window.isFirebaseInitializingGlobally = false; // Ensure this flag is always reset
             }
         };
 
@@ -275,101 +281,16 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // --- UTILITY FUNCTIONS ---
-        // Function to clean and parse numerical values from CSV
-        const cleanAndParseFloat = (value) => {
-            if (typeof value !== 'string') {
-                return parseFloat(value) || 0;
-            }
-            let cleanedValue = value.replace(/[^\d.,-]/g, '');
-            const hasComma = cleanedValue.includes(',');
-            const hasDot = cleanedValue.includes('.');
-
-            if (hasComma && hasDot) {
-                if (cleanedValue.indexOf(',') > cleanedValue.indexOf('.')) {
-                    cleanedValue = cleanedValue.replace(/\./g, '');
-                    cleanedValue = cleanedValue.replace(/,/g, '.');
-                } else {
-                    cleanedValue = cleanedValue.replace(/,/g, '');
-                }
-            } else if (hasComma) {
-                cleanedValue = cleanedValue.replace(/,/g, '.');
-            }
-            const parsed = parseFloat(cleanedValue);
-            return isNaN(parsed) ? 0 : parsed;
-        };
-
-        // Function to load CSV from a given URL
-        const loadCsvFromUrl = async (url, setPriceData, setError, initialMockPriceData, Papa) => {
-            setError(null);
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`Error al cargar el CSV: ${response.statusText} (${response.status}). Asegúrate de que la URL sea correcta y el archivo sea accesible.`);
-                }
-                const csvText = await response.text();
-
-                Papa.parse(csvText, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: (results) => {
-                        const requiredHeaders = [
-                            'Tipo Equipo', 'Marca', 'Equipo', 'Codigo SAP', 'Color',
-                            'Precio Publico (IVA incluido)', 'PrecioFacturacion distribuidor (con sim e IVA Incluido)',
-                            'Precio subdistribuidor (IVA Incluido)', 'Inicio de Vigencia', 'Fin de Vigencia', 'Utilidad DS'
-                        ];
-                        const actualHeaders = results.meta.fields;
-                        const missingHeaders = requiredHeaders.filter(header => !actualHeaders.includes(header));
-
-                        if (missingHeaders.length > 0) {
-                            setError(`Error en el CSV: Faltan las siguientes columnas: ${missingHeaders.join(', ')}. Asegúrate de que los nombres de las columnas coincidan exactamente.`);
-                            setPriceData(initialMockPriceData);
-                            return;
-                        }
-
-                        const parsedData = results.data.map((row, index) => {
-                            const item = {
-                                id: index + 1,
-                                'Tipo Equipo': row['Tipo Equipo'],
-                                Marca: row['Marca'],
-                                Equipo: row['Equipo'],
-                                'Codigo SAP': row['Codigo SAP'],
-                                Color: row['Color'],
-                                'Precio Publico (IVA incluido)': cleanAndParseFloat(row['Precio Publico (IVA incluido)']),
-                                'PrecioFacturacion distribuidor (con sim e IVA Incluido)': cleanAndParseFloat(row['PrecioFacturacion distribuidor (con sim e IVA Incluido)']),
-                                'Precio subdistribuidor (IVA Incluido)': cleanAndParseFloat(row['Precio subdistribuidor (IVA Incluido)']),
-                                'Inicio de Vigencia': row['Inicio de Vigencia'],
-                                'Fin de Vigencia': row['Fin de Vigencia'],
-                                'Utilidad DS': cleanAndParseFloat(row['Utilidad DS']),
-                            };
-                            return item;
-                        });
-
-                        if (parsedData.length > 0) {
-                            setPriceData(parsedData);
-                            setError(null);
-                        } else {
-                            setError('El archivo CSV está vacío o no contiene datos válidos.');
-                            setPriceData(initialMockPriceData);
-                        }
-                    },
-                    error: (err) => {
-                        setError(`Error al parsear el archivo CSV: ${err.message}`);
-                        setPriceData(initialMockPriceData);
-                    }
-                });
-            } catch (err) {
-                setError(`Error de red o CORS: ${err.message}. Asegúrate de que la URL sea pública y accesible.`);
-                setPriceData(initialMockPriceData);
-            }
-        };
-
-        // --- CONSTANTS ---
+        // Define the initial mock price data. This will be replaced by CSV data.
         const initialMockPriceData = [
           { id: 1, 'Tipo Equipo': 'Laptop', Marca: 'Acer', Equipo: 'Nitro 5', 'Codigo SAP': 'ACN5-001', Color: 'Negro', 'Precio Publico (IVA incluido)': 1500, 'PrecioFacturacion distribuidor (con sim e IVA Incluido)': 1200, 'Precio subdistribuidor (IVA Incluido)': 1000, 'Inicio de Vigencia': '2024-01-01', 'Fin de Vigencia': '2024-12-31', 'Utilidad DS': 0.20 },
           { id: 2, 'Tipo Equipo': 'Monitor', Marca: 'Samsung', Equipo: 'Odyssey G7', 'Codigo SAP': 'SMOG7-002', Color: 'Negro', 'Precio Publico (IVA incluido)': 400, 'PrecioFacturacion distribuidor (con sim e IVA Incluido)': 350, 'Precio subdistribuidor (IVA Incluido)': 300, 'Inicio de Vigencia': '2024-01-01', 'Fin de Vigencia': '2024-12-31', 'Utilidad DS': 0.15 },
+          { id: 3, 'Tipo Equipo': 'Teclado', Marca: 'HyperX', Equipo: 'Alloy Origins', 'Codigo SAP': 'HXAO-003', Color: 'Negro', 'Precio Publico (IVA incluido)': 110, 'PrecioFacturacion distribuidor (con sim e IVA Incluido)': 95, 'Precio subdistribuidor (IVA Incluido)': 80, 'Inicio de Vigencia': '2024-01-01', 'Fin de Vigencia': '2024-12-31', 'Utilidad DS': 0.10 },
+          { id: 4, 'Tipo Equipo': 'Mouse', Marca: 'Logitech', Equipo: 'G502 Hero', 'Codigo SAP': 'LGG502-004', Color: 'Negro', 'Precio Publico (IVA incluido)': 50, 'PrecioFacturacion distribuidor (con sim e IVA Incluido)': 40, 'Precio subdistribuidor (IVA Incluido)': 30, 'Inicio de Vigencia': '2024-01-01', 'Fin de Vigencia': '2024-12-31', 'Utilidad DS': 0.05 },
+          { id: 5, 'Tipo Equipo': 'Auriculares', Marca: 'Razer', Equipo: 'Kraken X', 'Codigo SAP': 'RZKX-005', Color: 'Verde', 'Precio Publico (IVA incluido)': 160, 'PrecioFacturacion distribuidor (con sim e IVA Incluido)': 140, 'Precio subdistribuidor (IVA Incluido)': 120, 'Inicio de Vigencia': '2024-01-01', 'Fin de Vigencia': '2024-12-31', 'Utilidad DS': 0.12 },
         ];
 
+        // Define column headers and their display names, including alignment
         const allColumns = [
             { key: 'Tipo Equipo', label: 'Tipo Equipo', align: 'left' },
             { key: 'Marca', label: 'Marca', align: 'left' },
@@ -384,152 +305,659 @@
             { key: 'Utilidad DS', label: 'Utilidad DS', align: 'right' }
         ];
 
+        // Define column visibility rules based on user type
         const columnVisibility = {
             admin: [
-                'Tipo Equipo', 'Marca', 'Equipo', 'Codigo SAP', 'Color',
-                'Precio Publico (IVA incluido)', 'PrecioFacturacion distribuidor (con sim e IVA Incluido)',
-                'Precio subdistribuidor (IVA Incluido)', 'Inicio de Vigencia', 'Fin de Vigencia', 'Utilidad DS'
+                'Tipo Equipo',
+                'Marca',
+                'Equipo',
+                'Codigo SAP',
+                'Color',
+                'Precio Publico (IVA incluido)',
+                'PrecioFacturacion distribuidor (con sim e IVA Incluido)',
+                'Precio subdistribuidor (IVA Incluido)',
+                'Inicio de Vigencia',
+                'Fin de Vigencia',
+                'Utilidad DS'
             ],
             direccion: [
-                'Marca', 'Equipo', 'Codigo SAP', 'Color',
-                'Precio Publico (IVA incluido)', 'Precio subdistribuidor (IVA Incluido)',
-                'Inicio de Vigencia', 'Fin de Vigencia', 'Utilidad DS'
+                'Marca',
+                'Equipo',
+                'Codigo SAP',
+                'Color',
+                'Precio Publico (IVA incluido)',
+                'Precio subdistribuidor (IVA Incluido)',
+                'Inicio de Vigencia',
+                'Fin de Vigencia',
+                'Utilidad DS'
             ],
             distribuidor: [
-                'Marca', 'Equipo', 'Codigo SAP', 'Color',
-                'Precio Publico (IVA incluido)', 'Precio subdistribuidor (IVA Incluido)',
-                'Inicio de Vigencia', 'Fin de Vigencia'
+                'Marca',
+                'Equipo',
+                'Codigo SAP',
+                'Color',
+                'Precio Publico (IVA incluido)',
+                'Precio subdistribuidor (IVA Incluido)', // Added for 'distribuidor'
+                'Inicio de Vigencia',
+                'Fin de Vigencia'
             ],
             'sub distribuidor': [
-                'Marca', 'Equipo', 'Codigo SAP', 'Color',
+                'Marca',
+                'Equipo',
+                'Codigo SAP',
+                'Color',
                 'Precio Publico (IVA incluido)'
             ]
         };
 
-        const DEFAULT_CSV_URL = 'https://raw.githubusercontent.com/Digshop25/mi-app-precios/main/Lista%2028a%20MOD%202.csv';
+        // !!! IMPORTANT: REPLACE THIS URL WITH THE RAW URL OF YOUR CSV FILE ON GITHUB !!!
+        // Example: https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/YOUR_FILE.csv
+        const DEFAULT_CSV_URL = 'https://raw.githubusercontent.com/Digshop25/mi-app-precios/main/Lista%2028a%20MOD%202.csv'; // Reemplaza esta URL con la tuya real
 
-        // --- COMPONENTS ---
+        // Main App component
+        function App() {
+          const [userType, setUserType] = React.useState(null);
+          const [username, setUsername] = React.useState('');
+          const [password, setPassword] = React.useState('');
+          const [error, setError] = React.useState(null); // General error for login/CSV
+          const [priceData, setPriceData] = React.useState(initialMockPriceData);
+          const [csvLoading, setCsvLoading] = React.useState(false); // State for CSV loading indicator
 
-        // LoginScreen Component
-        function LoginScreen({
-            username, setUsername, password, setPassword, handleLogin, error,
-            isFirebaseInitializing, firestoreError, adminUserExists, creatingAdminUser,
-            adminCreationMessage, createInitialAdminUser, firebaseReady, userId
-        }) {
+          // Firestore related states
+          const [registeredUsers, setRegisteredUsers] = React.useState([]); // Users fetched from Firestore
+          const [firestoreLoading, setFirestoreLoading] = React.useState(true); // Initial loading for Firestore users
+          const [firestoreError, setFirestoreError] = React.useState(null);
+          const [userId, setUserId] = React.useState(null); // Firebase Auth UID
+          const [firebaseReady, setFirebaseReady] = React.useState(false); // New state for Firebase readiness
+          // isFirebaseInitializing local state now directly reflects the global flag
+          const [isFirebaseInitializing, setIsFirebaseInitializing] = React.useState(window.isFirebaseInitializingGlobally);
+
+          // New states for initial admin user creation
+          const [adminUserExists, setAdminUserExists] = React.useState(false);
+          const [creatingAdminUser, setCreatingAdminUser] = React.useState(false);
+          const [adminCreationMessage, setAdminCreationMessage] = React.useState(null);
+
+
+          // New states for new user creation form
+          const [newUsername, setNewUsername] = React.useState('');
+          const [newUserEmail, setNewUserEmail] = React.useState('');
+          const [newUserPassword, setNewUserPassword] = React.useState('');
+          const [newUserType, setNewUserType] = React.useState('sub distribuidor');
+          const [successMessage, setSuccessMessage] = React.useState(null); // New state for success messages
+
+          // New states for search/filter
+          const [selectedBrand, setSelectedBrand] = React.useState(''); // '' means all brands
+          const [searchTerm, setSearchTerm] = React.useState('');
+
+          // New state for selected items for printing
+          const [selectedItems, setSelectedItems] = React.useState(new Set()); // Stores IDs of selected items
+
+          // Effect for Firebase readiness and global error handling
+          React.useEffect(() => {
+            // Function to check and update React states based on global Firebase flags
+            const updateFirebaseStates = () => {
+                if (window.globalFirebaseError) {
+                    setFirestoreError(window.globalFirebaseError);
+                    setIsFirebaseInitializing(false);
+                    setFirestoreLoading(false);
+                    return;
+                }
+
+                if (window.firebaseInitialized) {
+                    setFirebaseReady(true);
+                    setIsFirebaseInitializing(false);
+                    // Only set up onAuthStateChanged if window.auth is defined and no user is currently logged in
+                    if (window.auth && !window.auth.currentUser) {
+                        const unsubscribeAuth = window.auth.onAuthStateChanged(user => {
+                            if (user) {
+                                setUserId(user.uid);
+                                console.log("Firebase Auth UID:", user.uid);
+                            } else {
+                                setUserId(null);
+                                console.log("No Firebase user logged in (anonymous or custom token needed).");
+                            }
+                        });
+                        return unsubscribeAuth; // Return cleanup function
+                    }
+                } else if (window.isFirebaseInitializingGlobally) {
+                    setIsFirebaseInitializing(true);
+                    // Re-check after a short delay if still initializing globally
+                    const timeoutId = setTimeout(updateFirebaseStates, 100);
+                    return () => clearTimeout(timeoutId); // Return cleanup function
+                } else {
+                    // If not initialized, no error, and not globally initializing, it means init failed silently.
+                    console.warn("Firebase not initialized and not globally initializing. Assuming silent failure.");
+                    setIsFirebaseInitializing(false);
+                    setFirestoreLoading(false);
+                    setFirestoreError("No se pudo conectar a Firebase. Por favor, revisa tu configuración y la consola del navegador.");
+                }
+                return undefined; // No cleanup needed if no listener was set
+            };
+
+            const unsubscribe = updateFirebaseStates(); // Initial check
+
+            return () => {
+                if (unsubscribe) unsubscribe(); // Cleanup auth listener if it was set
+            };
+          }, []); // Empty dependency array means it runs once on mount
+
+
+          // Effect for fetching users from Firestore in real-time and checking for admin
+          React.useEffect(() => {
+            if (firebaseReady && userId && window.db && window.appId) { // Ensure firebase is ready and user is authenticated
+                setFirestoreLoading(true);
+                setFirestoreError(null);
+                try {
+                    // Path for public users data: /artifacts/{appId}/public/data/users
+                    const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+                    const q = window.query(usersCollectionRef); // No orderBy to avoid index issues
+
+                    const unsubscribeFirestore = window.onSnapshot(q, (snapshot) => {
+                        const users = snapshot.docs.map(doc => ({
+                            id: doc.id, // Document ID from Firestore
+                            ...doc.data()
+                        }));
+                        setRegisteredUsers(users);
+                        // Check if an 'admin' user exists in the fetched list
+                        const adminFound = users.some(u => u.username === 'admin' && u.type === 'admin');
+                        setAdminUserExists(adminFound);
+                        setFirestoreLoading(false);
+                        console.log("Usuarios cargados de Firestore:", users);
+                        console.log("Admin user exists:", adminFound);
+                    }, (err) => { // This error handler is for onSnapshot listener itself
+                        console.error("Error fetching users from Firestore (onSnapshot callback):", err);
+                        setFirestoreError(`Error al cargar usuarios de la base de datos: ${err.message}`);
+                        setFirestoreLoading(false);
+                    });
+
+                    return () => unsubscribeFirestore(); // Cleanup subscription
+                } catch (e) { // This error handler is for the setup of the listener
+                    console.error("Error setting up Firestore listener (useEffect catch):", e);
+                    setFirestoreError(`Error al configurar la escucha de Firestore: ${e.message}`);
+                    setFirestoreLoading(false);
+                }
+            } else if (!firebaseReady || !userId) {
+                // If Firebase is not ready or user is not logged in, clear users and set loading to false
+                setRegisteredUsers([]);
+                setFirestoreLoading(false);
+                setAdminUserExists(false); // Assume admin doesn't exist if not ready
+            }
+          }, [firebaseReady, userId, window.db, window.appId]); // Re-run when firebaseReady, userId, or global Firebase instances are ready
+
+
+          // Function to clean and parse numerical values from CSV
+          const cleanAndParseFloat = (value) => {
+            if (typeof value !== 'string') {
+                return parseFloat(value) || 0;
+            }
+
+            let cleanedValue = value.replace(/[^\d.,-]/g, '');
+            const hasComma = cleanedValue.includes(',');
+            const hasDot = cleanedValue.includes('.');
+
+            if (hasComma && hasDot) {
+                if (cleanedValue.indexOf(',') > cleanedValue.indexOf('.')) {
+                    cleanedValue = cleanedValue.replace(/\./g, '');
+                    cleanedValue = cleanedValue.replace(/,/g, '.');
+                } else {
+                    cleanedValue = cleanedValue.replace(/,/g, '');
+                }
+            } else if (hasComma) {
+                cleanedValue = cleanedValue.replace(/,/g, '.');
+            }
+
+            const parsed = parseFloat(cleanedValue);
+            return isNaN(parsed) ? 0 : parsed;
+          };
+
+          // Function to load CSV from a given URL
+          const loadCsvFromUrl = async (url) => {
+            setCsvLoading(true);
+            setError(null);
+            try {
+              const response = await fetch(url);
+              if (!response.ok) {
+                throw new Error(`Error al cargar el CSV: ${response.statusText} (${response.status}). Asegúrate de que la URL sea correcta y el archivo sea accesible.`);
+              }
+              const csvText = await response.text();
+
+              Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                  const requiredHeaders = [
+                    'Tipo Equipo', 'Marca', 'Equipo', 'Codigo SAP', 'Color',
+                    'Precio Publico (IVA incluido)', 'PrecioFacturacion distribuidor (con sim e IVA Incluido)',
+                    'Precio subdistribuidor (IVA Incluido)', 'Inicio de Vigencia', 'Fin de Vigencia', 'Utilidad DS'
+                  ];
+                  const actualHeaders = results.meta.fields;
+
+                  const missingHeaders = requiredHeaders.filter(header => !actualHeaders.includes(header));
+
+                  if (missingHeaders.length > 0) {
+                    setError(`Error en el CSV: Faltan las siguientes columnas: ${missingHeaders.join(', ')}. Asegúrate de que los nombres de las columnas coincidan exactamente.`);
+                    setPriceData(initialMockPriceData);
+                    return;
+                  }
+
+                  const parsedData = results.data.map((row, index) => {
+                    const item = {
+                        id: index + 1,
+                        'Tipo Equipo': row['Tipo Equipo'],
+                        Marca: row['Marca'],
+                        Equipo: row['Equipo'],
+                        'Codigo SAP': row['Codigo SAP'],
+                        Color: row['Color'],
+                        'Precio Publico (IVA incluido)': cleanAndParseFloat(row['Precio Publico (IVA incluido)']),
+                        'PrecioFacturacion distribuidor (con sim e IVA Incluido)': cleanAndParseFloat(row['PrecioFacturacion distribuidor (con sim e IVA Incluido)']),
+                        'Precio subdistribuidor (IVA Incluido)': cleanAndParseFloat(row['Precio subdistribuidor (IVA Incluido)']),
+                        'Inicio de Vigencia': row['Inicio de Vigencia'],
+                        'Fin de Vigencia': row['Fin de Vigencia'],
+                        'Utilidad DS': cleanAndParseFloat(row['Utilidad DS']),
+                    };
+                    return item;
+                  });
+
+                  if (parsedData.length > 0) {
+                    setPriceData(parsedData);
+                    setError(null);
+                  } else {
+                    setError('El archivo CSV está vacío o no contiene datos válidos.');
+                    setPriceData(initialMockPriceData);
+                  }
+                },
+                error: (err) => {
+                  setError(`Error al parsear el archivo CSV: ${err.message}`);
+                  setPriceData(initialMockPriceData);
+                }
+              });
+            } catch (err) {
+              setError(`Error de red o CORS: ${err.message}. Asegúrate de que la URL sea pública y accesible.`);
+              setPriceData(initialMockPriceData);
+            } finally {
+              setCsvLoading(false); // Ensure loading state is reset
+            }
+          };
+
+          // Handle login attempt (NOW uses Firestore for authentication)
+          const handleLogin = async (e) => {
+            e.preventDefault();
+            setError(null);
+            setFirestoreLoading(true); // Indicate login process is loading
+
+            if (!firebaseReady || !window.db) {
+                setError('Firebase no está listo. Por favor, espera un momento e intenta de nuevo.');
+                setFirestoreLoading(false);
+                return;
+            }
+
+            try {
+                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+                // Query Firestore for a user with matching username and password
+                const q = window.query(
+                    usersCollectionRef,
+                    window.where('username', '==', username),
+                    window.where('password', '==', password) // WARNING: Storing passwords in plaintext is INSECURE for production. Use Firebase Auth for real apps.
+                );
+                const querySnapshot = await window.getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    const foundUserDoc = querySnapshot.docs[0].data();
+                    setUserType(foundUserDoc.type);
+                    setError(null);
+                    console.log(`Usuario ${foundUserDoc.username} (${foundUserDoc.type}) ha iniciado sesión desde Firestore.`);
+                    await loadCsvFromUrl(DEFAULT_CSV_URL); // Load CSV after successful login
+                } else {
+                    // Removed fallback to local mock users as per user request.
+                    setError("Nombre de usuario o contraseña incorrectos.");
+                }
+            } catch (e) {
+                console.error("Error during login from Firestore:", e);
+                setError(`Error al iniciar sesión: ${e.message}. Por favor, revisa la consola.`);
+            } finally {
+                setFirestoreLoading(false); // Reset loading state after login attempt
+            }
+          };
+
+          // Function to create the initial admin user in Firestore
+          const createInitialAdminUser = async () => {
+            if (!firebaseReady || !window.db || !userId) {
+                setAdminCreationMessage('Firebase no está listo o no hay un usuario autenticado para crear el admin.');
+                return;
+            }
+            setCreatingAdminUser(true);
+            setAdminCreationMessage(null);
+            setError(null); // Clear general error
+
+            try {
+                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+                // Check if admin already exists to prevent duplicates
+                const q = window.query(usersCollectionRef, window.where('username', '==', 'admin'), window.where('type', '==', 'admin'));
+                const querySnapshot = await window.getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    setAdminCreationMessage('El usuario admin ya existe en Firestore.');
+                    setAdminUserExists(true); // Update state to reflect existence
+                    return;
+                }
+
+                // Add the admin user
+                await window.addDoc(usersCollectionRef, {
+                    username: 'admin',
+                    password: 'password123', // Default password for initial setup
+                    type: 'admin',
+                    createdAt: new Date(),
+                    createdBy: userId // Record who created this user (anonymous user ID)
+                });
+                setAdminUserExists(true);
+                setAdminCreationMessage('Usuario admin creado con éxito en Firestore. Ahora puedes iniciar sesión.');
+                // Optionally set username/password fields for convenience
+                setUsername('admin');
+                setPassword('password123');
+            } catch (e) {
+                console.error("Error creating initial admin user:", e);
+                setAdminCreationMessage(`Error al crear el usuario admin: ${e.message}. Revisa las reglas de seguridad de Firestore.`);
+            } finally {
+                setCreatingAdminUser(false);
+            }
+          };
+
+
+          // Handle logout
+          const handleLogout = () => {
+            setUserType(null);
+            setUsername('');
+            setPassword('');
+            setError(null);
+            setPriceData(initialMockPriceData); // Reset data on logout
+            setNewUsername('');
+            setNewUserEmail('');
+            setNewUserPassword('');
+            setNewUserType('sub distribuidor');
+            // Reset filter states on logout
+            setSelectedBrand('');
+            setSearchTerm('');
+            setSelectedItems(new Set()); // Clear selected items on logout
+            console.log("Sesión cerrada.");
+          };
+
+          const handleCreateUser = async () => {
+            if (!newUsername || !newUserEmail || !newUserPassword) {
+              setError('Todos los campos (usuario, email, contraseña) son obligatorios.');
+              return;
+            }
+            if (registeredUsers.some(u => u.username === newUsername)) {
+              setError('Este nombre de usuario ya existe. Por favor, elige otro.');
+              return;
+            }
+
+            if (!window.db || !userId) {
+                setFirestoreError('La base de datos no está lista o no hay un usuario autenticado. Por favor, intenta de nuevo en unos segundos.');
+                return;
+            }
+
+            setFirestoreLoading(true);
+            setFirestoreError(null);
+            setSuccessMessage(null); // Clear previous success messages
+
+            try {
+                // Add user to Firestore
+                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+                await window.addDoc(usersCollectionRef, {
+                    username: newUsername,
+                    email: newUserEmail,
+                    password: newUserPassword, // WARNING: Storing passwords in plaintext is INSECURE for production. Use Firebase Auth for real apps.
+                    type: newUserType,
+                    createdAt: new Date(),
+                    createdBy: userId // Record who created this user
+                });
+
+                setNewUsername('');
+                setNewUserEmail('');
+                setNewUserPassword('');
+                setNewUserType('sub distribuidor');
+                setError(null);
+                setSuccessMessage("Usuario creado en la base de datos con éxito.");
+                setTimeout(() => setSuccessMessage(null), 5000); // Clear after 5 seconds
+            } catch (e) {
+                console.error("Error creating user in Firestore:", e);
+                setFirestoreError(`Error al crear el usuario en la base de datos: ${e.message}`);
+            } finally {
+                setFirestoreLoading(false);
+            }
+          };
+
+          // Handle checkbox change for item selection
+          const handleCheckboxChange = (itemId, isChecked) => {
+            setSelectedItems(prevSelectedItems => {
+              const newSet = new Set(prevSelectedItems);
+              if (isChecked) {
+                newSet.add(itemId);
+              } else {
+                newSet.delete(itemId);
+              }
+              return newSet;
+            });
+          };
+
+          // Handle printing selected items
+          const handlePrintSelected = () => {
+            if (selectedItems.size === 0) {
+              alert('Por favor, selecciona al menos un modelo para imprimir.');
+              return;
+            }
+
+            const itemsToPrint = priceData.filter(item => selectedItems.has(item.id));
+            const columnsForPrint = allColumns.filter(col => columnVisibility[userType] && columnVisibility[userType].includes(col.key));
+
+            let printContent = `
+                <div style="font-family: 'Inter', sans-serif; padding: 20px;">
+                    <h1 style="text-align: center; font-size: 24px; margin-bottom: 20px; color: #333;">Lista de Modelos Seleccionados</h1>
+                    <table class="excel-table" style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                ${columnsForPrint.map(col => `
+                                    <th style="border: 1px solid #ccc; padding: 8px; text-align: ${col.align}; background-color: #f2f2f2; font-weight: bold; font-size: 10px;">
+                                        ${col.label}
+                                    </th>
+                                `).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsToPrint.map((item, index) => `
+                                <tr style="background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
+                                    ${columnsForPrint.map(col => `
+                                        <td style="border: 1px solid #ccc; padding: 8px; font-size: 10px; text-align: ${col.align};">
+                                            ${col.key.startsWith('Precio') || col.key === 'Utilidad DS'
+                                                ? `$${item[col.key] ? parseFloat(item[col.key]).toFixed(2) : '0.00'}`
+                                                : item[col.key]}
+                                        </td>
+                                    `).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write('<html><head><title>Imprimir Lista</title>');
+            printWindow.document.write(`
+                <style>
+                    body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+                    .excel-table { border-collapse: collapse; width: 100%; }
+                    .excel-table th, .excel-table td { border: 1px solid #ccc; padding: 8px; font-size: 10px; text-align: left; white-space: normal; }
+                    .excel-table th { background-color: #f2f2f2; font-weight: bold; color: #333; text-align: center; }
+                    .excel-table tbody tr:nth-child(even) { background-color: #f9f9f9; }
+                    .excel-table td.text-right { text-align: right; }
+                    h1 { text-align: center; font-size: 24px; margin-bottom: 20px; color: #333; }
+                </style>
+            `);
+            printWindow.document.write('</head><body>');
+            printWindow.document.write(printContent);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+          };
+
+
+          // Memoized list of unique brands for the dropdown
+          const uniqueBrands = React.useMemo(() => {
+            const brands = new Set();
+            priceData.forEach(item => {
+              if (item.Marca) {
+                brands.add(item.Marca);
+              }
+            });
+            return ['', ...Array.from(brands).sort()]; // Add empty string for "All Brands" option
+          }, [priceData]);
+
+          // Memoized filtered price data based on selected brand and search term
+          const filteredPriceData = React.useMemo(() => {
+            return priceData.filter(item => {
+              const matchesBrand = selectedBrand === '' || item.Marca === selectedBrand;
+              const lowerCaseSearchTerm = searchTerm.toLowerCase();
+
+              // Check if search term matches in 'Equipo' or 'Codigo SAP'
+              const matchesSearchTerm = searchTerm === '' ||
+                                        (item.Equipo && item.Equipo.toLowerCase().includes(lowerCaseSearchTerm)) ||
+                                        (item['Codigo SAP'] && item['Codigo SAP'].toLowerCase().includes(lowerCaseSearchTerm));
+              return matchesBrand && matchesSearchTerm;
+            });
+          }, [priceData, selectedBrand, searchTerm]);
+
+
+          const columnsToDisplay = userType ? allColumns.filter(col => columnVisibility[userType] && columnVisibility[userType].includes(col.key)) : [];
+
+          if (!userType) {
             return (
-                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-white p-4 font-inter">
-                    <div className="card-modern w-full max-w-md">
-                        <h2 className="text-3xl font-bold text-center text-gray-800 mb-4">LISTA DE PRECIOS DS</h2>
-                        <p className="text-center text-gray-600 text-md mb-8">Bienvenido, favor de ingresar su usuario y contraseña para ver la lista de precios</p>
+              <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-white p-4 font-inter">
+                <div className="card-modern w-full max-w-md">
+                  <h2 className="text-3xl font-bold text-center text-gray-800 mb-4">LISTA DE PRECIOS DS</h2>
+                  <p className="text-center text-gray-600 text-md mb-8">Bienvenido, favor de ingresar su usuario y contraseña para ver la lista de precios</p>
 
-                        {isFirebaseInitializing && !firestoreError && (
-                            <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
-                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  {isFirebaseInitializing && !firestoreError && ( // Show this while Firebase is truly initializing
+                        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="block sm:inline">Conectando a Firebase...</span>
+                        </div>
+                    )}
+
+                    {firestoreError && ( // Show Firebase init error
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
+                            <strong className="font-bold">Error de conexión:</strong>
+                            <span className="block sm:inline"> {firestoreError}</span>
+                        </div>
+                    )}
+
+                  {error && (
+                      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
+                          <strong className="font-bold">Error:</strong>
+                          <span className="block sm:inline"> {error}</span>
+                      </div>
+                  )}
+
+                  {!isFirebaseInitializing && !firestoreError && ( // Only show form if Firebase is initialized and no critical error
+                    <>
+                        <form onSubmit={handleLogin}>
+                        <div className="mb-6">
+                            <label htmlFor="username" className="block text-gray-700 text-sm font-semibold mb-2">
+                            Usuario
+                            </label>
+                            <input
+                            type="text"
+                            id="username"
+                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            required
+                            aria-label="Usuario"
+                            />
+                        </div>
+                        <div className="mb-6">
+                            <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
+                            Contraseña
+                            </label>
+                            <input
+                            type="password"
+                            id="password"
+                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            aria-label="Contraseña"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            className="btn-modern w-full"
+                            disabled={firestoreLoading} // Disable button during login attempt
+                        >
+                            {firestoreLoading ? 'Iniciando sesión...' : 'Entrar'}
+                        </button>
+                        </form>
+
+                        {!adminUserExists && !creatingAdminUser && firebaseReady && userId && (
+                            <div className="mt-6 text-center">
+                                {adminCreationMessage && (
+                                    <div className={`px-4 py-2 rounded-md mb-3 text-sm ${adminCreationMessage.includes('éxito') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} border ${adminCreationMessage.includes('éxito') ? 'border-green-400' : 'border-red-400'}`}>
+                                        {adminCreationMessage}
+                                    </div>
+                                )}
+                                <button
+                                    onClick={createInitialAdminUser}
+                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+                                    disabled={creatingAdminUser || firestoreLoading}
+                                >
+                                    {creatingAdminUser ? 'Creando Admin...' : 'Crear Usuario Admin Inicial (Solo una vez)'}
+                                </button>
+                                <p className="text-gray-500 text-xs mt-2">
+                                    Si no puedes iniciar sesión, haz clic aquí para crear el usuario 'admin' con contraseña 'password123'.
+                                </p>
+                            </div>
+                        )}
+                        {creatingAdminUser && (
+                            <div className="mt-6 text-center text-blue-700 flex items-center justify-center gap-2">
+                                <svg className="animate-spin h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                <span className="block sm:inline">Conectando a Firebase...</span>
+                                <span>Creando usuario admin...</span>
                             </div>
                         )}
-
-                        {firestoreError && (
-                            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
-                                <strong className="font-bold">Error de conexión:</strong>
-                                <span className="block sm:inline"> {firestoreError}</span>
-                            </div>
-                        )}
-
-                        {error && (
-                            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
-                                <strong className="font-bold">Error:</strong>
-                                <span className="block sm:inline"> {error}</span>
-                            </div>
-                        )}
-
-                        {!isFirebaseInitializing && !firestoreError && (
-                            <>
-                                <form onSubmit={handleLogin}>
-                                    <div className="mb-6">
-                                        <label htmlFor="username" className="block text-gray-700 text-sm font-semibold mb-2">
-                                        Usuario
-                                        </label>
-                                        <input
-                                        type="text"
-                                        id="username"
-                                        className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        required
-                                        aria-label="Usuario"
-                                        />
-                                    </div>
-                                    <div className="mb-6">
-                                        <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
-                                        Contraseña
-                                        </label>
-                                        <input
-                                        type="password"
-                                        id="password"
-                                        className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        required
-                                        aria-label="Contraseña"
-                                        />
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        className="btn-modern w-full"
-                                        disabled={isFirebaseInitializing}
-                                    >
-                                        {isFirebaseInitializing ? 'Iniciando sesión...' : 'Entrar'}
-                                    </button>
-                                </form>
-
-                                {!adminUserExists && !creatingAdminUser && firebaseReady && userId && (
-                                    <div className="mt-6 text-center">
-                                        {adminCreationMessage && (
-                                            <div className={`px-4 py-2 rounded-md mb-3 text-sm ${adminCreationMessage.includes('éxito') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} border ${adminCreationMessage.includes('éxito') ? 'border-green-400' : 'border-red-400'}`}>
-                                                {adminCreationMessage}
-                                            </div>
-                                        )}
-                                        <button
-                                            onClick={createInitialAdminUser}
-                                            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
-                                            disabled={creatingAdminUser || isFirebaseInitializing}
-                                        >
-                                            {creatingAdminUser ? 'Creando Admin...' : 'Crear Usuario Admin Inicial (Solo una vez)'}
-                                        </button>
-                                        <p className="text-gray-500 text-xs mt-2">
-                                            Si no puedes iniciar sesión, haz clic aquí para crear el usuario 'admin' con contraseña 'password123'.
-                                        </p>
-                                    </div>
-                                )}
-                                {creatingAdminUser && (
-                                    <div className="mt-6 text-center text-blue-700 flex items-center justify-center gap-2">
-                                        <svg className="animate-spin h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        <span>Creando usuario admin...</span>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
+                    </>
+                  )}
                 </div>
+              </div>
             );
-        }
+          }
 
-        // UserManagement Component (for Admin only)
-        function UserManagement({
-            firebaseReady, firestoreLoading, firestoreError, userId,
-            newUsername, setNewUsername, newUserEmail, setNewUserEmail,
-            newUserPassword, setNewUserPassword, newUserType, setNewUserType,
-            handleCreateUser, successMessage, registeredUsers, error
-        }) {
-            return (
-                <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200">
+          return (
+            <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8 font-inter">
+              <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-custom-strong overflow-hidden border border-gray-200">
+                <header className="bg-gradient-to-r from-blue-600 to-purple-700 p-6 flex justify-between items-center text-white shadow-custom-medium">
+                  {/* Title centered within its own flex-grow container */}
+                  <div className="flex-grow text-center">
+                    <h1 className="text-3xl sm:text-4xl font-extrabold text-shadow-lg inline-block mx-auto">Lista de Precios</h1>
+                  </div>
+                  {/* User info and logout button, aligned to the right */}
+                  <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                    <span className="text-lg sm:text-xl font-light">Bienvenido, <span className="font-bold capitalize">{userType}</span>!</span>
+                    <button
+                      onClick={handleLogout}
+                      className="bg-white text-blue-600 hover:bg-blue-100 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+                    >
+                      Cerrar Sesión
+                    </button>
+                  </div>
+                </header>
+
+                {userType === 'admin' && (
+                  <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200">
                     <h3 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-3">Gestión de Usuarios (Firestore)</h3>
                     {!firebaseReady && (
                         <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
@@ -681,16 +1109,26 @@
                             </div>
                         </>
                     )}
-                </div>
-            );
-        }
+                  </div>
+                )}
 
-        // FiltersAndActions Component
-        function FiltersAndActions({
-            selectedBrand, setSelectedBrand, searchTerm, setSearchTerm, uniqueBrands,
-            handlePrintSelected, selectedItems
-        }) {
-            return (
+                {csvLoading && (
+                    <div className="p-4 sm:p-6 lg:p-8 bg-blue-50 border-b border-blue-200 flex items-center justify-center gap-4 rounded-b-xl">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p className="text-blue-700 font-semibold">Cargando datos de precios...</p>
+                    </div>
+                )}
+                {error && (
+                    <div className="p-4 sm:p-6 lg:p-8 bg-red-100 border-b border-red-400 text-red-700 flex items-center justify-center gap-4 rounded-b-xl">
+                        <strong className="font-bold">Error al cargar CSV:</strong>
+                        <span className="block sm:inline"> {error}</span>
+                    </div>
+                )}
+
+                {/* Search/Filter Module */}
                 <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-start gap-4">
                     <div className="w-full sm:w-auto flex-grow">
                         <label htmlFor="brand-select" className="block text-gray-700 text-sm font-semibold mb-2">
@@ -733,578 +1171,75 @@
                         </button>
                     </div>
                 </div>
-            );
-        }
 
-        // PriceTable Component
-        function PriceTable({
-            filteredPriceData, columnsToDisplay, selectedItems, handleCheckboxChange, userType
-        }) {
-            return (
                 <div className="p-4 sm:p-6 lg:p-8 overflow-x-auto">
-                    {userType && (
-                        <div className="mb-4 text-sm text-gray-700 p-3 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
-                            <p>Datos de precios cargados: <span className="font-semibold">{filteredPriceData.length}</span> elementos</p>
-                            <p>Columnas a mostrar para <span className="font-bold capitalize text-blue-700">{userType}</span>: <span className="font-semibold">{columnsToDisplay.length}</span> columnas</p>
-                        </div>
-                    )}
+                  {/* Debugging info */}
+                  {userType && (
+                      <div className="mb-4 text-sm text-gray-700 p-3 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
+                          <p>Datos de precios cargados: <span className="font-semibold">{priceData.length}</span> elementos</p>
+                          <p>Columnas a mostrar para <span className="font-bold capitalize text-blue-700">{userType}</span>: <span className="font-semibold">{columnsToDisplay.length}</span> columnas</p>
+                      </div>
+                  )}
+                  {/* End Debugging info */}
 
-                    {filteredPriceData.length > 0 ? (
-                        <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-custom-light excel-table">
-                            <thead>
-                                <tr>
-                                    <th className="py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200 bg-gray-100">
-                                        Seleccionar
-                                    </th>
-                                    {columnsToDisplay.length > 0 ? (
-                                        columnsToDisplay.map(col => (
-                                            <th key={col.key} className={`py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200 bg-gray-100 ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
-                                                {col.label}
-                                            </th>
-                                        ))
-                                    ) : (
-                                        <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200" colSpan={allColumns.length}>
-                                            No hay columnas para mostrar para este tipo de usuario.
-                                        </th>
-                                    )}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredPriceData.map((item, index) => (
-                                    <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150 ease-in-out`}>
-                                        <td className="py-3 px-4 text-gray-800 border-b border-gray-100 text-sm table-cell-responsive text-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedItems.has(item.id)}
-                                                onChange={(e) => handleCheckboxChange(item.id, e.target.checked)}
-                                                className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                                                aria-label={`Seleccionar ${item.Equipo}`}
-                                            />
-                                        </td>
-                                        {columnsToDisplay.length > 0 ? (
-                                            columnsToDisplay.map(col => (
-                                                <td key={`${item.id}-${col.key}`} className={`py-3 px-4 text-gray-800 border-b border-gray-100 text-sm table-cell-responsive ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
-                                                    {col.key.startsWith('Precio') || col.key === 'Utilidad DS'
-                                                        ? `$${item[col.key] ? parseFloat(item[col.key]).toFixed(2) : '0.00'}`
-                                                        : item[col.key]}
-                                                </td>
-                                            ))
-                                        ) : (
-                                            <td colSpan={allColumns.length} className="py-4 text-center text-gray-500 text-sm">
-                                                No hay datos de columna para mostrar para este tipo de usuario.
-                                            </td>
-                                        )}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : (
-                        <p className="text-center text-gray-600 py-8 text-lg bg-gray-50 rounded-lg border border-gray-200 p-4 shadow-sm">No se encontraron resultados para los filtros aplicados. Por favor, ajusta tu búsqueda.</p>
-                    )}
-                </div>
-            );
-        }
-
-        // Dashboard Component (main logged-in view)
-        function Dashboard({
-            userType, handleLogout, priceData, csvLoading, error,
-            selectedBrand, setSelectedBrand, searchTerm, setSearchTerm, uniqueBrands,
-            handlePrintSelected, selectedItems,
-            registeredUsers, firestoreLoading, firestoreError, userId,
-            newUsername, setNewUsername, newUserEmail, setNewUserEmail,
-            newUserPassword, setNewUserPassword, newUserType, setNewUserType,
-            handleCreateUser, successMessage
-        }) {
-            const columnsToDisplay = userType ? allColumns.filter(col => columnVisibility[userType] && columnVisibility[userType].includes(col.key)) : [];
-
-            // Memoized filtered price data based on selected brand and search term
-            const filteredPriceData = React.useMemo(() => {
-                return priceData.filter(item => {
-                    const matchesBrand = selectedBrand === '' || item.Marca === selectedBrand;
-                    const lowerCaseSearchTerm = searchTerm.toLowerCase();
-                    const matchesSearchTerm = searchTerm === '' ||
-                                                (item.Equipo && item.Equipo.toLowerCase().includes(lowerCaseSearchTerm)) ||
-                                                (item['Codigo SAP'] && item['Codigo SAP'].toLowerCase().includes(lowerCaseSearchTerm));
-                    return matchesBrand && matchesSearchTerm;
-                });
-            }, [priceData, selectedBrand, searchTerm]);
-
-            return (
-                <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8 font-inter">
-                    <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-custom-strong overflow-hidden border border-gray-200">
-                        <header className="bg-gradient-to-r from-blue-600 to-purple-700 p-6 flex justify-between items-center text-white shadow-custom-medium">
-                            <div className="flex-grow text-center">
-                                <h1 className="text-3xl sm:text-4xl font-extrabold text-shadow-lg inline-block mx-auto">Lista de Precios</h1>
-                            </div>
-                            <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                                <span className="text-lg sm:text-xl font-light">Bienvenido, <span className="font-bold capitalize">{userType}</span>!</span>
-                                <button
-                                    onClick={handleLogout}
-                                    className="bg-white text-blue-600 hover:bg-blue-100 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-                                >
-                                    Cerrar Sesión
-                                </button>
-                            </div>
-                        </header>
-
-                        {userType === 'admin' && (
-                            <UserManagement
-                                firebaseReady={firebaseReady}
-                                firestoreLoading={firestoreLoading}
-                                firestoreError={firestoreError}
-                                userId={userId}
-                                newUsername={newUsername}
-                                setNewUsername={setNewUsername}
-                                newUserEmail={newUserEmail}
-                                setNewUserEmail={setNewUserEmail}
-                                newUserPassword={newUserPassword}
-                                setNewUserPassword={setNewUserPassword}
-                                newUserType={newUserType}
-                                setNewUserType={setNewUserType}
-                                handleCreateUser={handleCreateUser}
-                                successMessage={successMessage}
-                                registeredUsers={registeredUsers}
-                                error={error} // Pass general error for user management form
-                            />
-                        )}
-
-                        {csvLoading && (
-                            <div className="p-4 sm:p-6 lg:p-8 bg-blue-50 border-b border-blue-200 flex items-center justify-center gap-4 rounded-b-xl">
-                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <p className="text-blue-700 font-semibold">Cargando datos de precios...</p>
-                            </div>
-                        )}
-                        {error && (
-                            <div className="p-4 sm:p-6 lg:p-8 bg-red-100 border-b border-red-400 text-red-700 flex items-center justify-center gap-4 rounded-b-xl">
-                                <strong className="font-bold">Error al cargar CSV:</strong>
-                                <span className="block sm:inline"> {error}</span>
-                            </div>
-                        )}
-
-                        <FiltersAndActions
-                            selectedBrand={selectedBrand}
-                            setSelectedBrand={setSelectedBrand}
-                            searchTerm={searchTerm}
-                            setSearchTerm={setSearchTerm}
-                            uniqueBrands={uniqueBrands}
-                            handlePrintSelected={handlePrintSelected}
-                            selectedItems={selectedItems}
-                        />
-
-                        <PriceTable
-                            filteredPriceData={filteredPriceData}
-                            columnsToDisplay={columnsToDisplay}
-                            selectedItems={selectedItems}
-                            handleCheckboxChange={handleCheckboxChange}
-                            userType={userType}
-                        />
-                    </div>
-                </div>
-            );
-        }
-
-
-        // Main App Component
-        function App() {
-          const [userType, setUserType] = React.useState(null);
-          const [username, setUsername] = React.useState('');
-          const [password, setPassword] = React.useState('');
-          const [error, setError] = React.useState(null); // General error for login/CSV
-          const [priceData, setPriceData] = React.useState(initialMockPriceData);
-          const [csvLoading, setCsvLoading] = React.useState(false); // State for CSV loading indicator
-
-          // Firestore related states
-          const [registeredUsers, setRegisteredUsers] = React.useState([]); // Users fetched from Firestore
-          const [firestoreLoading, setFirestoreLoading] = React.useState(true); // Initial loading for Firestore users
-          const [firestoreError, setFirestoreError] = React.useState(null);
-          const [userId, setUserId] = React.useState(null); // Firebase Auth UID
-          const [firebaseReady, setFirebaseReady] = React.useState(false); // New state for Firebase readiness
-          const [isFirebaseInitializing, setIsFirebaseInitializing] = React.useState(window.isFirebaseInitializingGlobally);
-
-          // New states for initial admin user creation
-          const [adminUserExists, setAdminUserExists] = React.useState(false);
-          const [creatingAdminUser, setCreatingAdminUser] = React.useState(false);
-          const [adminCreationMessage, setAdminCreationMessage] = React.useState(null);
-
-          // New states for new user creation form
-          const [newUsername, setNewUsername] = React.useState('');
-          const [newUserEmail, setNewUserEmail] = React.useState('');
-          const [newUserPassword, setNewUserPassword] = React.useState('');
-          const [newUserType, setNewUserType] = React.useState('sub distribuidor');
-          const [successMessage, setSuccessMessage] = React.useState(null); // New state for success messages
-
-          // New states for search/filter
-          const [selectedBrand, setSelectedBrand] = React.useState(''); // '' means all brands
-          const [searchTerm, setSearchTerm] = React.useState('');
-
-          // New state for selected items for printing
-          const [selectedItems, setSelectedItems] = React.useState(new Set()); // Stores IDs of selected items
-
-          // Effect for Firebase readiness and global error handling
-          React.useEffect(() => {
-            const updateFirebaseStates = () => {
-                if (window.globalFirebaseError) {
-                    setFirestoreError(window.globalFirebaseError);
-                    setIsFirebaseInitializing(false);
-                    setFirestoreLoading(false);
-                    return;
-                }
-
-                if (window.firebaseInitialized) {
-                    setFirebaseReady(true);
-                    setIsFirebaseInitializing(false);
-                    if (!window.auth._is || !window.auth.currentUser) {
-                        const unsubscribeAuth = window.auth.onAuthStateChanged(user => {
-                            if (user) {
-                                setUserId(user.uid);
-                                console.log("Firebase Auth UID:", user.uid);
-                            } else {
-                                setUserId(null);
-                                console.log("No Firebase user logged in (anonymous or custom token needed).");
-                            }
-                        });
-                        return unsubscribeAuth;
-                    }
-                } else if (window.isFirebaseInitializingGlobally) {
-                    setIsFirebaseInitializing(true);
-                    const timeoutId = setTimeout(updateFirebaseStates, 100);
-                    return () => clearTimeout(timeoutId);
-                } else {
-                    console.warn("Firebase not initialized and not globally initializing. Assuming silent failure.");
-                    setIsFirebaseInitializing(false);
-                    setFirestoreLoading(false);
-                    setFirestoreError("No se pudo conectar a Firebase. Por favor, revisa tu configuración y la consola del navegador.");
-                }
-                return null;
-            };
-
-            const unsubscribe = updateFirebaseStates();
-
-            return () => {
-                if (unsubscribe) unsubscribe();
-            };
-          }, []);
-
-          // Effect for fetching users from Firestore in real-time and checking for admin
-          React.useEffect(() => {
-            if (firebaseReady && userId && window.db && window.appId) {
-                setFirestoreLoading(true);
-                setFirestoreError(null);
-                try {
-                    const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
-                    const q = window.query(usersCollectionRef);
-
-                    const unsubscribeFirestore = window.onSnapshot(q, (snapshot) => {
-                        const users = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data()
-                        }));
-                        setRegisteredUsers(users);
-                        const adminFound = users.some(u => u.username === 'admin' && u.type === 'admin');
-                        setAdminUserExists(adminFound);
-                        setFirestoreLoading(false);
-                        console.log("Usuarios cargados de Firestore:", users);
-                        console.log("Admin user exists:", adminFound);
-                    }, (err) => {
-                        console.error("Error fetching users from Firestore (onSnapshot callback):", err);
-                        setFirestoreError(`Error al cargar usuarios de la base de datos: ${err.message}`);
-                        setFirestoreLoading(false);
-                    });
-
-                    return () => unsubscribeFirestore();
-                } catch (e) {
-                    console.error("Error setting up Firestore listener (useEffect catch):", e);
-                    setFirestoreError(`Error al configurar la escucha de Firestore: ${e.message}`);
-                    setFirestoreLoading(false);
-                }
-            } else if (!firebaseReady || !userId) {
-                setRegisteredUsers([]);
-                setFirestoreLoading(false);
-                setAdminUserExists(false);
-            }
-          }, [firebaseReady, userId, window.db, window.appId]);
-
-
-          // Handle login attempt (NOW uses Firestore for authentication)
-          const handleLogin = async (e) => {
-            e.preventDefault();
-            setError(null);
-            setFirestoreLoading(true);
-
-            if (!firebaseReady || !window.db) {
-                setError('Firebase no está listo. Por favor, espera un momento e intenta de nuevo.');
-                setFirestoreLoading(false);
-                return;
-            }
-
-            try {
-                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
-                const q = window.query(
-                    usersCollectionRef,
-                    window.where('username', '==', username),
-                    window.where('password', '==', password)
-                );
-                const querySnapshot = await window.getDocs(q);
-
-                if (!querySnapshot.empty) {
-                    const foundUserDoc = querySnapshot.docs[0].data();
-                    setUserType(foundUserDoc.type);
-                    setError(null);
-                    console.log(`Usuario ${foundUserDoc.username} (${foundUserDoc.type}) ha iniciado sesión desde Firestore.`);
-                    setCsvLoading(true); // Start CSV loading
-                    await loadCsvFromUrl(DEFAULT_CSV_URL, setPriceData, setError, initialMockPriceData, Papa); // Pass Papa
-                    setCsvLoading(false); // End CSV loading
-                } else {
-                    setError("Nombre de usuario o contraseña incorrectos.");
-                }
-            } catch (e) {
-                console.error("Error during login from Firestore:", e);
-                setError(`Error al iniciar sesión: ${e.message}. Por favor, revisa la consola.`);
-            } finally {
-                setFirestoreLoading(false);
-            }
-          };
-
-          // Function to create the initial admin user in Firestore
-          const createInitialAdminUser = async () => {
-            if (!firebaseReady || !window.db || !userId) {
-                setAdminCreationMessage('Firebase no está listo o no hay un usuario autenticado para crear el admin.');
-                return;
-            }
-            setCreatingAdminUser(true);
-            setAdminCreationMessage(null);
-            setError(null);
-
-            try {
-                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
-                const q = window.query(usersCollectionRef, window.where('username', '==', 'admin'), window.where('type', '==', 'admin'));
-                const querySnapshot = await window.getDocs(q);
-
-                if (!querySnapshot.empty) {
-                    setAdminCreationMessage('El usuario admin ya existe en Firestore.');
-                    setAdminUserExists(true);
-                    return;
-                }
-
-                await window.addDoc(usersCollectionRef, {
-                    username: 'admin',
-                    password: 'password123',
-                    type: 'admin',
-                    createdAt: new Date(),
-                    createdBy: userId
-                });
-                setAdminUserExists(true);
-                setAdminCreationMessage('Usuario admin creado con éxito en Firestore. Ahora puedes iniciar sesión.');
-                setUsername('admin');
-                setPassword('password123');
-            } catch (e) {
-                console.error("Error creating initial admin user:", e);
-                setAdminCreationMessage(`Error al crear el usuario admin: ${e.message}. Revisa las reglas de seguridad de Firestore.`);
-            } finally {
-                setCreatingAdminUser(false);
-            }
-          };
-
-          // Handle logout
-          const handleLogout = () => {
-            setUserType(null);
-            setUsername('');
-            setPassword('');
-            setError(null);
-            setPriceData(initialMockPriceData);
-            setNewUsername('');
-            setNewUserEmail('');
-            setNewUserPassword('');
-            setNewUserType('sub distribuidor');
-            setSelectedBrand('');
-            setSearchTerm('');
-            setSelectedItems(new Set());
-            console.log("Sesión cerrada.");
-          };
-
-          const handleCreateUser = async () => {
-            if (!newUsername || !newUserEmail || !newUserPassword) {
-              setError('Todos los campos (usuario, email, contraseña) son obligatorios.');
-              return;
-            }
-            if (registeredUsers.some(u => u.username === newUsername)) {
-              setError('Este nombre de usuario ya existe. Por favor, elige otro.');
-              return;
-            }
-
-            if (!window.db || !userId) {
-                setFirestoreError('La base de datos no está lista o no hay un usuario autenticado. Por favor, intenta de nuevo en unos segundos.');
-                return;
-            }
-
-            setFirestoreLoading(true);
-            setFirestoreError(null);
-            setSuccessMessage(null);
-
-            try {
-                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
-                await window.addDoc(usersCollectionRef, {
-                    username: newUsername,
-                    email: newUserEmail,
-                    password: newUserPassword,
-                    type: newUserType,
-                    createdAt: new Date(),
-                    createdBy: userId
-                });
-
-                setNewUsername('');
-                setNewUserEmail('');
-                setNewUserPassword('');
-                setNewUserType('sub distribuidor');
-                setError(null);
-                setSuccessMessage("Usuario creado en la base de datos con éxito.");
-                setTimeout(() => setSuccessMessage(null), 5000);
-            } catch (e) {
-                console.error("Error creating user in Firestore:", e);
-                setFirestoreError(`Error al crear el usuario en la base de datos: ${e.message}`);
-            } finally {
-                setFirestoreLoading(false);
-            }
-          };
-
-          // Handle checkbox change for item selection
-          const handleCheckboxChange = (itemId, isChecked) => {
-            setSelectedItems(prevSelectedItems => {
-              const newSet = new Set(prevSelectedItems);
-              if (isChecked) {
-                newSet.add(itemId);
-              } else {
-                newSet.delete(itemId);
-              }
-              return newSet;
-            });
-          };
-
-          // Handle printing selected items
-          const handlePrintSelected = () => {
-            if (selectedItems.size === 0) {
-              alert('Por favor, selecciona al menos un modelo para imprimir.');
-              return;
-            }
-
-            const itemsToPrint = priceData.filter(item => selectedItems.has(item.id));
-            const columnsForPrint = allColumns.filter(col => columnVisibility[userType] && columnVisibility[userType].includes(col.key));
-
-            let printContent = `
-                <div style="font-family: 'Inter', sans-serif; padding: 20px;">
-                    <h1 style="text-align: center; font-size: 24px; margin-bottom: 20px; color: #333;">Lista de Modelos Seleccionados</h1>
-                    <table class="excel-table" style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr>
-                                ${columnsForPrint.map(col => `
-                                    <th style="border: 1px solid #ccc; padding: 8px; text-align: ${col.align}; background-color: #f2f2f2; font-weight: bold; font-size: 10px;">
-                                        ${col.label}
-                                    </th>
-                                `).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${itemsToPrint.map((item, index) => `
-                                <tr style="background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
-                                    ${columnsForPrint.map(col => `
-                                        <td style="border: 1px solid #ccc; padding: 8px; font-size: 10px; text-align: ${col.align};">
-                                            ${col.key.startsWith('Precio') || col.key === 'Utilidad DS'
-                                                ? `$${item[col.key] ? parseFloat(item[col.key]).toFixed(2) : '0.00'}`
-                                                : item[col.key]}
-                                        </td>
-                                    `).join('')}
-                                </tr>
-                            `).join('')}
-                        </tbody>
+                  {filteredPriceData.length > 0 ? (
+                    <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-custom-light excel-table">
+                      <thead>
+                        <tr>
+                          <th className="py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200 bg-gray-100">
+                            Seleccionar
+                          </th>
+                          {/* Render table headers based on columnVisibility for the current userType */}
+                          {columnsToDisplay.length > 0 ? (
+                              columnsToDisplay.map(col => (
+                                  <th key={col.key} className={`py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200 bg-gray-100 ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
+                                    {col.label}
+                                  </th>
+                              ))
+                          ) : (
+                              <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200" colSpan={allColumns.length}>
+                                No hay columnas para mostrar para este tipo de usuario.
+                              </th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredPriceData.map((item, index) => ( // Use filteredPriceData here
+                          <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150 ease-in-out`}>
+                            <td className="py-3 px-4 text-gray-800 border-b border-gray-100 text-sm table-cell-responsive text-center">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedItems.has(item.id)}
+                                    onChange={(e) => handleCheckboxChange(item.id, e.target.checked)}
+                                    className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                                    aria-label={`Seleccionar ${item.Equipo}`}
+                                />
+                            </td>
+                            {/* Render table cells based on columnVisibility for the current userType */}
+                            {columnsToDisplay.length > 0 ? (
+                                columnsToDisplay.map(col => (
+                                    <td key={`${item.id}-${col.key}`} className={`py-3 px-4 text-gray-800 border-b border-gray-100 text-sm table-cell-responsive ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
+                                      {/* Format price columns to 2 decimal places */}
+                                      {col.key.startsWith('Precio') || col.key === 'Utilidad DS'
+                                        ? `$${item[col.key] ? parseFloat(item[col.key]).toFixed(2) : '0.00'}`
+                                        : item[col.key]}
+                                    </td>
+                                ))
+                            ) : (
+                                <td colSpan={allColumns.length} className="py-4 text-center text-gray-500 text-sm">
+                                    No hay datos de columna para mostrar para este tipo de usuario.
+                                </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
                     </table>
+                  ) : (
+                    <p className="text-center text-gray-600 py-8 text-lg bg-gray-50 rounded-lg border border-gray-200 p-4 shadow-sm">No se encontraron resultados para los filtros aplicados. Por favor, ajusta tu búsqueda.</p>
+                  )}
                 </div>
-            `;
-
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write('<html><head><title>Imprimir Lista</title>');
-            printWindow.document.write(`
-                <style>
-                    body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
-                    .excel-table { border-collapse: collapse; width: 100%; }
-                    .excel-table th, .excel-table td { border: 1px solid #ccc; padding: 8px; font-size: 10px; text-align: left; white-space: normal; }
-                    .excel-table th { background-color: #f2f2f2; font-weight: bold; color: #333; text-align: center; }
-                    .excel-table tbody tr:nth-child(even) { background-color: #f9f9f9; }
-                    .excel-table td.text-right { text-align: right; }
-                    h1 { text-align: center; font-size: 24px; margin-bottom: 20px; color: #333; }
-                </style>
-            `);
-            printWindow.document.write('</head><body>');
-            printWindow.document.write(printContent);
-            printWindow.document.write('</body></html>');
-            printWindow.document.close();
-            printWindow.focus();
-            printWindow.print();
-          };
-
-          // Memoized list of unique brands for the dropdown
-          const uniqueBrands = React.useMemo(() => {
-            const brands = new Set();
-            priceData.forEach(item => {
-              if (item.Marca) {
-                brands.add(item.Marca);
-              }
-            });
-            return ['', ...Array.from(brands).sort()];
-          }, [priceData]);
-
-          if (!userType) {
-            return (
-              <LoginScreen
-                username={username}
-                setUsername={setUsername}
-                password={password}
-                setPassword={setPassword}
-                handleLogin={handleLogin}
-                error={error}
-                isFirebaseInitializing={isFirebaseInitializing}
-                firestoreError={firestoreError}
-                adminUserExists={adminUserExists}
-                creatingAdminUser={creatingAdminUser}
-                adminCreationMessage={adminCreationMessage}
-                createInitialAdminUser={createInitialAdminUser}
-                firebaseReady={firebaseReady}
-                userId={userId}
-              />
-            );
-          }
-
-          return (
-            <Dashboard
-                userType={userType}
-                handleLogout={handleLogout}
-                priceData={priceData}
-                csvLoading={csvLoading}
-                error={error}
-                selectedBrand={selectedBrand}
-                setSelectedBrand={setSelectedBrand}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                uniqueBrands={uniqueBrands}
-                handlePrintSelected={handlePrintSelected}
-                selectedItems={selectedItems}
-                registeredUsers={registeredUsers}
-                firestoreLoading={firestoreLoading}
-                firestoreError={firestoreError}
-                userId={userId}
-                newUsername={newUsername}
-                setNewUsername={setNewUsername}
-                newUserEmail={newUserEmail}
-                setNewUserEmail={setNewUserEmail}
-                newUserPassword={newUserPassword}
-                setNewUserPassword={setNewUserPassword}
-                newUserType={newUserType}
-                setNewUserType={setNewUserType}
-                handleCreateUser={handleCreateUser}
-                successMessage={successMessage}
-            />
+              </div>
+            </div>
           );
         }
 
