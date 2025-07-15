@@ -185,13 +185,13 @@
         ];
 
         // Hardcoded user data for authentication (local management)
-        // These are for fallback/initial login validation. Actual users for admin panel are from Firestore.
-        const localMockLoginUsers = [
-          { id: 'mock-admin', username: 'admin', password: 'password123', type: 'admin', email: 'admin@example.com' },
-          { id: 'mock-direccion', username: 'direccion', password: 'password123', type: 'direccion', email: 'direccion@example.com' },
-          { id: 'mock-distribuidor', username: 'distribuidor', password: 'password123', type: 'distribuidor', email: 'distribuidor@example.com' },
-          { id: 'mock-subdistribuidor', password: 'password123', type: 'sub distribuidor', email: 'subdistribuidor@example.com' },
-        ];
+        // This array has been removed as per user request to rely solely on Firestore users.
+        // const localMockLoginUsers = [
+        //   { id: 'mock-admin', username: 'admin', password: 'password123', type: 'admin', email: 'admin@example.com' },
+        //   { id: 'mock-direccion', username: 'direccion', password: 'password123', type: 'direccion', email: 'direccion@example.com' },
+        //   { id: 'mock-distribuidor', username: 'distribuidor', password: 'password123', type: 'distribuidor', email: 'distribuidor@example.com' },
+        //   { id: 'mock-subdistribuidor', password: 'password123', type: 'sub distribuidor', email: 'subdistribuidor@example.com' },
+        // ];
 
         // Define column headers and their display names
         const allColumns = [
@@ -499,16 +499,8 @@
                     console.log(`Usuario ${foundUserDoc.username} (${foundUserDoc.type}) ha iniciado sesión desde Firestore.`);
                     await loadCsvFromUrl(DEFAULT_CSV_URL); // Load CSV after successful login
                 } else {
-                    // Fallback to local mock users if not found in Firestore
-                    const foundLocalUser = localMockLoginUsers.find(u => u.username === username && u.password === password);
-                    if (foundLocalUser) {
-                        setUserType(foundLocalUser.type);
-                        setError(null);
-                        console.log(`Usuario ${foundLocalUser.username} (${foundLocalUser.type}) ha iniciado sesión desde usuarios locales.`);
-                        await loadCsvFromUrl(DEFAULT_CSV_URL);
-                    } else {
-                        setError("Nombre de usuario o contraseña incorrectos.");
-                    }
+                    // Removed fallback to local mock users as per user request.
+                    setError("Nombre de usuario o contraseña incorrectos.");
                 }
             } catch (e) {
                 console.error("Error during login from Firestore:", e);
@@ -679,17 +671,7 @@
                       </button>
                     </form>
                   )}
-                  <p className="text-center text-gray-600 text-sm mt-6 leading-relaxed">
-                    <span className="font-semibold text-gray-700">Usuarios de prueba (hardcodeados para inicio de sesión):</span>
-                    <br />
-                    <span className="font-medium">admin</span> / password123 <span className="text-gray-500">(Administrador)</span>
-                    <br />
-                    <span className="font-medium">direccion</span> / password123 <span className="text-gray-500">(Dirección)</span>
-                    <br />
-                    <span className="font-medium">distribuidor</span> / password123 <span className="text-gray-500">(Distribuidor)</span>
-                    <br />
-                    <span className="font-medium">subdistribuidor</span> / password123 <span className="text-gray-500">(Sub Distribuidor)</span>
-                  </p>
+                  {/* Removed the hardcoded user display as per user request */}
                 </div>
               </div>
             );
