@@ -41,10 +41,14 @@
             border-collapse: collapse; /* Ensures single borders */
             width: 100%;
         }
+        .excel-table th {
+            white-space: normal; /* Allow text wrapping in headers */
+            vertical-align: middle; /* Center text vertically in headers */
+        }
         .excel-table th, .excel-table td {
             border: 1px solid #e2e8f0; /* Light gray border for all cells */
             padding: 0.75rem 1rem; /* Consistent padding */
-            text-align: left;
+            /* text-align: left;  Removed default, using classes instead */
         }
         .excel-table thead th {
             background-color: #e2e8f0; /* Light gray background for headers */
@@ -184,19 +188,19 @@
           { id: 5, 'Tipo Equipo': 'Auriculares', Marca: 'Razer', Equipo: 'Kraken X', 'Codigo SAP': 'RZKX-005', Color: 'Verde', 'Precio Publico (IVA incluido)': 160, 'PrecioFacturacion distribuidor (con sim e IVA Incluido)': 140, 'Precio subdistribuidor (IVA Incluido)': 120, 'Inicio de Vigencia': '2024-01-01', 'Fin de Vigencia': '2024-12-31', 'Utilidad DS': 0.12 },
         ];
 
-        // Define column headers and their display names
+        // Define column headers and their display names, including alignment
         const allColumns = [
-            { key: 'Tipo Equipo', label: 'Tipo Equipo' },
-            { key: 'Marca', label: 'Marca' },
-            { key: 'Equipo', label: 'Equipo' },
-            { key: 'Codigo SAP', label: 'Código SAP' },
-            { key: 'Color', label: 'Color' },
-            { key: 'Precio Publico (IVA incluido)', label: 'Precio Público (IVA incluido)' },
-            { key: 'PrecioFacturacion distribuidor (con sim e IVA Incluido)', label: 'Precio Facturación Distribuidor (con sim e IVA Incluido)' },
-            { key: 'Precio subdistribuidor (IVA Incluido)', label: 'Precio Subdistribuidor (IVA Incluido)' },
-            { key: 'Inicio de Vigencia', label: 'Inicio de Vigencia' },
-            { key: 'Fin de Vigencia', label: 'Fin de Vigencia' },
-            { key: 'Utilidad DS', label: 'Utilidad DS' }
+            { key: 'Tipo Equipo', label: 'Tipo Equipo', align: 'left' },
+            { key: 'Marca', label: 'Marca', align: 'left' },
+            { key: 'Equipo', label: 'Equipo', align: 'left' },
+            { key: 'Codigo SAP', label: 'Código SAP', align: 'left' },
+            { key: 'Color', label: 'Color', align: 'left' },
+            { key: 'Precio Publico (IVA incluido)', label: 'Precio Público (IVA incluido)', align: 'right' },
+            { key: 'PrecioFacturacion distribuidor (con sim e IVA Incluido)', label: 'Precio Facturación Distribuidor (con sim e IVA Incluido)', align: 'right' },
+            { key: 'Precio subdistribuidor (IVA Incluido)', label: 'Precio Subdistribuidor (IVA Incluido)', align: 'right' },
+            { key: 'Inicio de Vigencia', label: 'Inicio de Vigencia', align: 'left' },
+            { key: 'Fin de Vigencia', label: 'Fin de Vigencia', align: 'left' },
+            { key: 'Utilidad DS', label: 'Utilidad DS', align: 'right' }
         ];
 
         // Define column visibility rules based on user type
@@ -908,10 +912,10 @@
                                 <tbody>
                                     {registeredUsers.map((user, index) => (
                                     <tr key={user.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
-                                        <td className="py-3 px-4 whitespace-nowrap text-gray-800 border-b border-gray-100 table-cell-responsive">{user.username}</td>
-                                        <td className="py-3 px-4 whitespace-nowrap text-gray-700 border-b border-gray-100 table-cell-responsive">{user.email || 'N/A'}</td>
-                                        <td className="py-3 px-4 whitespace-nowrap text-gray-700 border-b border-gray-100 capitalize table-cell-responsive">{user.type}</td>
-                                        <td className="py-3 px-4 whitespace-nowrap text-gray-500 text-xs border-b border-gray-100 table-cell-responsive">{user.id}</td>
+                                        <td className="py-3 px-4 text-gray-800 border-b border-gray-100 table-cell-responsive">{user.username}</td>
+                                        <td className="py-3 px-4 text-gray-700 border-b border-gray-100 table-cell-responsive">{user.email || 'N/A'}</td>
+                                        <td className="py-3 px-4 text-gray-700 border-b border-gray-100 capitalize table-cell-responsive">{user.type}</td>
+                                        <td className="py-3 px-4 text-gray-500 text-xs border-b border-gray-100 table-cell-responsive">{user.id}</td>
                                     </tr>
                                     ))}
                                     {registeredUsers.length === 0 && (
@@ -996,7 +1000,7 @@
                           {/* Render table headers based on columnVisibility for the current userType */}
                           {columnsToDisplay.length > 0 ? (
                               columnsToDisplay.map(col => (
-                                  <th key={col.key} className="py-3 px-4 text-left text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200 bg-gray-100">
+                                  <th key={col.key} className={`py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200 bg-gray-100 ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
                                     {col.label}
                                   </th>
                               ))
@@ -1013,7 +1017,7 @@
                             {/* Render table cells based on columnVisibility for the current userType */}
                             {columnsToDisplay.length > 0 ? (
                                 columnsToDisplay.map(col => (
-                                    <td key={`${item.id}-${col.key}`} className="py-3 px-4 whitespace-nowrap text-gray-800 border-b border-gray-100 text-sm table-cell-responsive">
+                                    <td key={`${item.id}-${col.key}`} className={`py-3 px-4 text-gray-800 border-b border-gray-100 text-sm table-cell-responsive ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
                                       {/* Format price columns to 2 decimal places */}
                                       {col.key.startsWith('Precio') || col.key === 'Utilidad DS'
                                         ? `$${item[col.key] ? parseFloat(item[col.key]).toFixed(2) : '0.00'}`
