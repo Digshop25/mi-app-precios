@@ -81,6 +81,9 @@
         window.auth = null;
         window.firebaseInitialized = false;
         window.appId = 'default-app-id'; // Ensure appId has a default
+        window.globalFirebaseError = null; // To store critical errors during initialization
+        // This flag indicates if the global Firebase initialization process is still running
+        window.isFirebaseInitializingGlobally = true;
 
         // Expose Firestore functions globally for the Babel script to use
         window.collection = collection;
@@ -92,7 +95,13 @@
 
         // Initialize Firebase and authenticate
         const initFirebase = async () => {
-            if (window.firebaseInitialized) return; // Prevent re-initialization
+            // Prevent re-initialization if already done or failed critically
+            if (window.firebaseInitialized || window.globalFirebaseError || !window.isFirebaseInitializingGlobally) {
+                console.log("Firebase already initialized, failed, or stopped. Skipping re-initialization.");
+                return;
+            }
+
+            console.log("Starting Firebase initialization...");
 
             try {
                 let firebaseConfig = {};
@@ -106,14 +115,15 @@
                 } else {
                     // For GitHub Pages or local deployment, user needs to provide their actual config
                     // !!! IMPORTANTE: REEMPLAZA LOS VALORES DE ABAJO CON TU CONFIGURACIÓN REAL DE FIREBASE !!!
-                    // Puedes encontrar estos valores en tu Consola de Firebase -> Configuración del Proyecto -> Tus apps (Web)
+                    // Los valores a continuación son los que proporcionaste en la imagen.
                     firebaseConfig = {
-                        apiKey: "AIzaSyBfCD3_opZniAHRXat42APlrhHwh_BpGPg", // <--- REEMPLAZA ESTO CON TU CLAVE API REAL
-                        authDomain: "lista-de-precios-3d4df.firebaseapp.com", // <--- REEMPLAZA ESTO CON TU authDomain REAL
-                        projectId: "lista-de-precios-3d4df", // <--- REEMPLAZA ESTO CON TU projectId REAL
-                        storageBucket: "lista-de-precios-3d4df.firebasestorage.app", // <--- REEMPLAZA ESTO CON TU storageBucket REAL
-                        messagingSenderId: "561816433633", // <--- REEMPLAZA ESTO CON TU messagingSenderId REAL
-                        appId: "G-GKQWC526ET" // <--- REEMPLAZA ESTO CON TU appId REAL
+                        apiKey: "AIzaSyBfCD3_opZniAHRXat42APlrhHwh_BpGPg",
+                        authDomain: "lista-de-precios-3d4df.firebaseapp.com",
+                        projectId: "lista-de-precios-3d4df",
+                        storageBucket: "lista-de-precios-3d4df.firebasestorage.app",
+                        messagingSenderId: "561816433633",
+                        appId: "1:561816433633:web:64312f4928ae92c40d58a0", // Corregido según tu imagen
+                        measurementId: "G-GKQWC526ET" // Añadido desde tu imagen
                     };
                     currentAppId = firebaseConfig.projectId || 'default-app-id'; // Use project ID as default app ID if available
 
@@ -127,31 +137,33 @@
                 }
 
                 const app = initializeApp(firebaseConfig);
+                console.log("Firebase app initialized.");
                 const authInstance = getAuth(app);
+                console.log("Firebase auth obtained.");
                 const dbInstance = getFirestore(app);
+                console.log("Firebase firestore obtained.");
 
-                // Set global variables ONLY if initialization is successful
                 window.firebaseApp = app;
                 window.db = dbInstance;
                 window.auth = authInstance;
-                window.appId = currentAppId; // Set appId globally here
+                window.appId = currentAppId;
 
-                // Sign in anonymously or with custom token if available
                 if (typeof __initial_auth_token !== 'undefined') {
                     await signInWithCustomToken(window.auth, __initial_auth_token);
+                    console.log("Signed in with custom token.");
                 } else {
                     await signInAnonymously(window.auth);
+                    console.log("Signed in anonymously.");
                 }
 
                 window.firebaseInitialized = true;
-                console.log("Firebase inicializado y autenticado con éxito.");
+                console.log("Firebase initialized and authenticated successfully.");
 
             } catch (e) {
                 console.error("Error al inicializar Firebase o iniciar sesión:", e);
-                // Do not set window.firebaseInitialized = true; if there's an error
-                // This ensures React components won't try to use null db/auth instances
-                // For critical errors, we can set a global error state for React to pick up
                 window.globalFirebaseError = `Error crítico al inicializar Firebase: ${e.message}. Por favor, revisa la consola del navegador.`;
+            } finally {
+                window.isFirebaseInitializingGlobally = false; // Ensure this flag is always reset
             }
         };
 
@@ -260,7 +272,9 @@
           const [firestoreError, setFirestoreError] = React.useState(null);
           const [userId, setUserId] = React.useState(null); // Firebase Auth UID
           const [firebaseReady, setFirebaseReady] = React.useState(false); // New state for Firebase readiness
-          const [isFirebaseInitializing, setIsFirebaseInitializing] = React.useState(true); // New state for initial Firebase connection
+          // isFirebaseInitializing local state now directly reflects the global flag
+          const [isFirebaseInitializing, setIsFirebaseInitializing] = React.useState(window.isFirebaseInitializingGlobally);
+
 
           // New states for new user creation form
           const [newUsername, setNewUsername] = React.useState('');
@@ -273,52 +287,55 @@
           const [selectedBrand, setSelectedBrand] = React.useState(''); // '' means all brands
           const [searchTerm, setSearchTerm] = React.useState('');
 
-          // Effect for Firebase initialization and Auth state change listener
+          // Effect for Firebase readiness and global error handling
           React.useEffect(() => {
-            // Check for initial global Firebase error set by initFirebase module script
-            if (window.globalFirebaseError) {
-                setFirestoreError(window.globalFirebaseError);
-                setIsFirebaseInitializing(false); // Stop initializing if global error
-                setFirestoreLoading(false); // Also stop general firestore loading
-                return; // Stop if there was a critical init error
-            }
-
-            const checkFirebaseAndAuth = () => {
-                if (window.firebaseInitialized && window.auth && window.db && window.appId) {
-                    setFirebaseReady(true);
-                    setIsFirebaseInitializing(false); // Firebase is ready, stop initializing indicator
-                    // Listen for auth state changes to get the user ID
-                    const unsubscribeAuth = window.auth.onAuthStateChanged(user => {
-                        if (user) {
-                            setUserId(user.uid);
-                            console.log("Firebase Auth UID:", user.uid);
-                        } else {
-                            setUserId(null);
-                            console.log("No Firebase user logged in (anonymous or custom token needed).");
-                        }
-                    });
-                    return unsubscribeAuth; // Return cleanup function
+            // Function to check and update React states based on global Firebase flags
+            const updateFirebaseStates = () => {
+                if (window.globalFirebaseError) {
+                    setFirestoreError(window.globalFirebaseError);
+                    setIsFirebaseInitializing(false);
+                    setFirestoreLoading(false);
+                    return;
                 }
-                return null; // No cleanup if not initialized yet
+
+                if (window.firebaseInitialized) {
+                    setFirebaseReady(true);
+                    setIsFirebaseInitializing(false);
+                    // Set up auth state listener if not already set
+                    if (!window.auth._is  // Simple check if auth listener might be active
+                        || !window.auth.currentUser) { // Or if current user is not yet set
+                        const unsubscribeAuth = window.auth.onAuthStateChanged(user => {
+                            if (user) {
+                                setUserId(user.uid);
+                                console.log("Firebase Auth UID:", user.uid);
+                            } else {
+                                setUserId(null);
+                                console.log("No Firebase user logged in (anonymous or custom token needed).");
+                            }
+                        });
+                        return unsubscribeAuth; // Return cleanup function for auth listener
+                    }
+                } else if (window.isFirebaseInitializingGlobally) {
+                    setIsFirebaseInitializing(true);
+                    // Re-check after a short delay if still initializing globally
+                    const timeoutId = setTimeout(updateFirebaseStates, 100);
+                    return () => clearTimeout(timeoutId);
+                } else {
+                    // If not initialized, no error, and not globally initializing, it means init failed silently.
+                    console.warn("Firebase not initialized and not globally initializing. Assuming silent failure.");
+                    setIsFirebaseInitializing(false);
+                    setFirestoreLoading(false);
+                    setFirestoreError("No se pudo conectar a Firebase. Por favor, revisa tu configuración y la consola del navegador.");
+                }
+                return null; // No cleanup needed if no listener was set
             };
 
-            let unsubscribe = checkFirebaseAndAuth();
-
-            // Set up an interval to repeatedly check if Firebase is ready
-            const intervalId = setInterval(() => {
-                if (!firebaseReady) { // Only check if not already ready
-                    unsubscribe = checkFirebaseAndAuth(); // Try to set up listener again
-                    if (firebaseReady) { // If it became ready in this check
-                        clearInterval(intervalId); // Clear interval
-                    }
-                }
-            }, 200); // Check every 200ms
+            const unsubscribe = updateFirebaseStates(); // Initial check
 
             return () => {
-                if (unsubscribe) unsubscribe(); // Cleanup auth listener
-                clearInterval(intervalId); // Clear the interval
+                if (unsubscribe) unsubscribe(); // Cleanup auth listener if it was set
             };
-          }, [firebaseReady]); // Depend on firebaseReady to re-run if it changes
+          }, []); // Empty dependency array means it runs once on mount
 
 
           // Effect for fetching users from Firestore in real-time
