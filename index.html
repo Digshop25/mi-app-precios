@@ -73,7 +73,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; // Added getDocs
 
         // Global variables for Firebase (will be available in the React component scope)
         window.firebaseApp = null;
@@ -82,19 +82,48 @@
         window.firebaseInitialized = false;
         window.appId = 'default-app-id'; // Ensure appId has a default
 
+        // Expose Firestore functions globally for the Babel script to use
+        window.collection = collection;
+        window.onSnapshot = onSnapshot;
+        window.addDoc = addDoc;
+        window.query = query;
+        window.where = where;
+        window.getDocs = getDocs; // Expose getDocs for querying
+
         // Initialize Firebase and authenticate
         const initFirebase = async () => {
             if (window.firebaseInitialized) return; // Prevent re-initialization
 
             try {
-                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                let firebaseConfig = {};
+                let currentAppId = 'default-app-id';
 
-                console.log("Firebase Config received:", firebaseConfig); // Added for debugging
+                // Check if __firebase_config is defined (Canvas preview environment)
+                if (typeof __firebase_config !== 'undefined') {
+                    firebaseConfig = JSON.parse(__firebase_config);
+                    currentAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    console.log("Firebase Config (from Canvas):", firebaseConfig);
+                } else {
+                    // For GitHub Pages or local deployment, user needs to provide their actual config
+                    // !!! IMPORTANTE: REEMPLAZA LOS VALORES DE ABAJO CON TU CONFIGURACIÓN REAL DE FIREBASE !!!
+                    // Puedes encontrar estos valores en tu Consola de Firebase -> Configuración del Proyecto -> Tus apps (Web)
+                    firebaseConfig = {
+                        apiKey: "AIzaSyBfCD3_opZniAHRXat42APlrhHwh_BpGPg"", // <--- REEMPLAZA ESTO CON TU CLAVE API REAL
+                        authDomain: "lista-de-precios-3d4df.firebaseapp.com", // <--- REEMPLAZA ESTO CON TU authDomain REAL
+                        projectId: "lista-de-precios-3d4df", // <--- REEMPLAZA ESTO CON TU projectId REAL
+                        storageBucket: "lista-de-precios-3d4df.firebasestorage.app", // <--- REEMPLAZA ESTO CON TU storageBucket REAL
+                        messagingSenderId: "561816433633", // <--- REEMPLAZA ESTO CON TU messagingSenderId REAL
+                        appId: "G-GKQWC526ET" // <--- REEMPLAZA ESTO CON TU appId REAL
+                    };
+                    currentAppId = firebaseConfig.projectId || 'default-app-id'; // Use project ID as default app ID if available
+
+                    console.warn("ADVERTENCIA: Usando configuración de Firebase hardcodeada. Recuerda reemplazar los marcadores de posición con los detalles reales de tu proyecto de Firebase para el despliegue en producción.");
+                    console.log("Firebase Config (hardcodeada):", firebaseConfig);
+                }
 
                 // Explicit check for API key
-                if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === '') {
-                    throw new Error("Firebase API Key is missing or invalid in the configuration.");
+                if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === 'YOUR_FIREBASE_API_KEY' || firebaseConfig.apiKey === '') {
+                    throw new Error("Firebase API Key is missing or invalid in the configuration. Please replace 'YOUR_FIREBASE_API_KEY' with your actual key from Firebase Console.");
                 }
 
                 const app = initializeApp(firebaseConfig);
@@ -105,7 +134,7 @@
                 window.firebaseApp = app;
                 window.db = dbInstance;
                 window.auth = authInstance;
-                window.appId = appId; // Set appId globally here
+                window.appId = currentAppId; // Set appId globally here
 
                 // Sign in anonymously or with custom token if available
                 if (typeof __initial_auth_token !== 'undefined') {
@@ -115,10 +144,10 @@
                 }
 
                 window.firebaseInitialized = true;
-                console.log("Firebase initialized and authenticated successfully.");
+                console.log("Firebase inicializado y autenticado con éxito.");
 
             } catch (e) {
-                console.error("Error initializing Firebase or signing in:", e);
+                console.error("Error al inicializar Firebase o iniciar sesión:", e);
                 // Do not set window.firebaseInitialized = true; if there's an error
                 // This ensures React components won't try to use null db/auth instances
                 // For critical errors, we can set a global error state for React to pick up
@@ -426,6 +455,8 @@
             e.preventDefault();
             setError(null);
 
+            // This currently uses localMockLoginUsers.
+            // In the next step, we can modify this to query Firestore for users.
             const foundUser = localMockLoginUsers.find(u => u.username === username && u.password === password);
 
             if (foundUser) {
