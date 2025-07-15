@@ -80,19 +80,25 @@
         window.db = null;
         window.auth = null;
         window.firebaseInitialized = false;
+        window.appId = 'default-app-id'; // Ensure appId has a default
 
         // Initialize Firebase and authenticate
         const initFirebase = async () => {
-            if (window.firebaseInitialized) return;
+            if (window.firebaseInitialized) return; // Prevent re-initialization
 
             try {
-                // __firebase_config and __app_id are provided by the Canvas environment
                 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-                window.firebaseApp = initializeApp(firebaseConfig);
-                window.db = getFirestore(window.firebaseApp);
-                window.auth = getAuth(window.firebaseApp);
+                const app = initializeApp(firebaseConfig);
+                const authInstance = getAuth(app);
+                const dbInstance = getFirestore(app);
+
+                // Set global variables ONLY if initialization is successful
+                window.firebaseApp = app;
+                window.db = dbInstance;
+                window.auth = authInstance;
+                window.appId = appId; // Set appId globally here
 
                 // Sign in anonymously or with custom token if available
                 if (typeof __initial_auth_token !== 'undefined') {
@@ -102,14 +108,14 @@
                 }
 
                 window.firebaseInitialized = true;
-                console.log("Firebase initialized and authenticated.");
-
-                // Make appId globally available for Firestore paths
-                window.appId = appId;
+                console.log("Firebase initialized and authenticated successfully.");
 
             } catch (e) {
                 console.error("Error initializing Firebase or signing in:", e);
-                // Optionally, set a global error state or display a message
+                // Do not set window.firebaseInitialized = true; if there's an error
+                // This ensures React components won't try to use null db/auth instances
+                // For critical errors, we can set a global error state for React to pick up
+                window.globalFirebaseError = `Error crítico al inicializar Firebase: ${e.message}. Por favor, revisa la consola del navegador.`;
             }
         };
 
@@ -136,7 +142,7 @@
           { id: 'mock-admin', username: 'admin', password: 'password123', type: 'admin', email: 'admin@example.com' },
           { id: 'mock-direccion', username: 'direccion', password: 'password123', type: 'direccion', email: 'direccion@example.com' },
           { id: 'mock-distribuidor', username: 'distribuidor', password: 'password123', type: 'distribuidor', email: 'distribuidor@example.com' },
-          { id: 'mock-subdistribuidor', username: 'subdistribuidor', password: 'password123', type: 'sub distribuidor', email: 'subdistribuidor@example.com' },
+          { id: 'mock-subdistribuidor', password: 'password123', type: 'sub distribuidor', email: 'subdistribuidor@example.com' },
         ];
 
         // Define column headers and their display names
@@ -208,7 +214,7 @@
           const [userType, setUserType] = React.useState(null);
           const [username, setUsername] = React.useState('');
           const [password, setPassword] = React.useState('');
-          const [error, setError] = React.useState(null);
+          const [error, setError] = React.useState(null); // General error for login/CSV
           const [priceData, setPriceData] = React.useState(initialMockPriceData);
 
           // Firestore related states
@@ -216,12 +222,14 @@
           const [firestoreLoading, setFirestoreLoading] = React.useState(true);
           const [firestoreError, setFirestoreError] = React.useState(null);
           const [userId, setUserId] = React.useState(null); // Firebase Auth UID
+          const [firebaseReady, setFirebaseReady] = React.useState(false); // New state for Firebase readiness
 
           // New states for new user creation form
           const [newUsername, setNewUsername] = React.useState('');
           const [newUserEmail, setNewUserEmail] = React.useState('');
           const [newUserPassword, setNewUserPassword] = React.useState('');
           const [newUserType, setNewUserType] = React.useState('sub distribuidor');
+          const [successMessage, setSuccessMessage] = React.useState(null); // New state for success messages
 
           // New states for search/filter
           const [selectedBrand, setSelectedBrand] = React.useState(''); // '' means all brands
@@ -229,8 +237,16 @@
 
           // Effect for Firebase initialization and Auth state change listener
           React.useEffect(() => {
-            const setupFirebaseListener = () => {
-                if (window.firebaseInitialized && window.auth) {
+            // Check for initial global Firebase error set by initFirebase module script
+            if (window.globalFirebaseError) {
+                setFirestoreError(window.globalFirebaseError);
+                setFirestoreLoading(false);
+                return; // Stop if there was a critical init error
+            }
+
+            const checkFirebaseAndAuth = () => {
+                if (window.firebaseInitialized && window.auth && window.db && window.appId) {
+                    setFirebaseReady(true);
                     // Listen for auth state changes to get the user ID
                     const unsubscribeAuth = window.auth.onAuthStateChanged(user => {
                         if (user) {
@@ -240,26 +256,34 @@
                             setUserId(null);
                             console.log("No Firebase user logged in (anonymous or custom token needed).");
                         }
-                        setFirestoreLoading(false); // Auth state checked, can proceed
                     });
-                    return () => unsubscribeAuth(); // Cleanup subscription
-                } else {
-                    // If Firebase is not yet initialized, wait for it
-                    const checkFirebaseInterval = setInterval(() => {
-                        if (window.firebaseInitialized && window.auth) {
-                            clearInterval(checkFirebaseInterval);
-                            setupFirebaseListener(); // Re-run setup once initialized
-                        }
-                    }, 100);
+                    return unsubscribeAuth; // Return cleanup function
                 }
+                return null; // No cleanup if not initialized yet
             };
 
-            setupFirebaseListener();
-          }, []); // Empty dependency array means this runs once on mount
+            let unsubscribe = checkFirebaseAndAuth();
+
+            // Set up an interval to repeatedly check if Firebase is ready
+            const intervalId = setInterval(() => {
+                if (!firebaseReady) { // Only check if not already ready
+                    unsubscribe = checkFirebaseAndAuth(); // Try to set up listener again
+                    if (firebaseReady) { // If it became ready in this check
+                        clearInterval(intervalId); // Clear interval
+                    }
+                }
+            }, 200); // Check every 200ms
+
+            return () => {
+                if (unsubscribe) unsubscribe(); // Cleanup auth listener
+                clearInterval(intervalId); // Clear the interval
+            };
+          }, [firebaseReady]); // Depend on firebaseReady to re-run if it changes
+
 
           // Effect for fetching users from Firestore in real-time
           React.useEffect(() => {
-            if (userId && window.db && window.appId) {
+            if (firebaseReady && userId && window.db && window.appId) { // Ensure firebase is ready and user is authenticated
                 setFirestoreLoading(true);
                 setFirestoreError(null);
                 try {
@@ -275,24 +299,24 @@
                         setRegisteredUsers(users);
                         setFirestoreLoading(false);
                         console.log("Usuarios cargados de Firestore:", users);
-                    }, (err) => {
-                        console.error("Error fetching users from Firestore:", err);
+                    }, (err) => { // This error handler is for onSnapshot listener itself
+                        console.error("Error fetching users from Firestore (onSnapshot callback):", err);
                         setFirestoreError(`Error al cargar usuarios de la base de datos: ${err.message}`);
                         setFirestoreLoading(false);
                     });
 
                     return () => unsubscribeFirestore(); // Cleanup subscription
-                } catch (e) {
-                    console.error("Error setting up Firestore listener:", e);
+                } catch (e) { // This error handler is for the setup of the listener
+                    console.error("Error setting up Firestore listener (useEffect catch):", e);
                     setFirestoreError(`Error al configurar la escucha de Firestore: ${e.message}`);
                     setFirestoreLoading(false);
                 }
-            } else if (!userId) {
-                // If userId becomes null (e.g., on logout), clear registered users
+            } else if (!firebaseReady || !userId) {
+                // If Firebase is not ready or user is not logged in, clear users and set loading to false
                 setRegisteredUsers([]);
                 setFirestoreLoading(false);
             }
-          }, [userId, window.db, window.appId]); // Re-run when userId or firebase instances are ready
+          }, [firebaseReady, userId, window.db, window.appId]); // Re-run when firebaseReady, userId, or global Firebase instances are ready
 
 
           // Function to clean and parse numerical values from CSV
@@ -436,12 +460,13 @@
             }
 
             if (!window.db || !userId) {
-                setError('La base de datos no está lista. Por favor, intenta de nuevo en unos segundos.');
+                setFirestoreError('La base de datos no está lista o no hay un usuario autenticado. Por favor, intenta de nuevo en unos segundos.');
                 return;
             }
 
             setFirestoreLoading(true);
             setFirestoreError(null);
+            setSuccessMessage(null); // Clear previous success messages
 
             try {
                 // Add user to Firestore
@@ -460,7 +485,8 @@
                 setNewUserPassword('');
                 setNewUserType('sub distribuidor');
                 setError(null);
-                alert("Usuario creado en la base de datos con éxito.");
+                setSuccessMessage("Usuario creado en la base de datos con éxito.");
+                setTimeout(() => setSuccessMessage(null), 5000); // Clear after 5 seconds
             } catch (e) {
                 console.error("Error creating user in Firestore:", e);
                 setFirestoreError(`Error al crear el usuario en la base de datos: ${e.message}`);
@@ -583,7 +609,16 @@
                 {userType === 'admin' && (
                   <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200">
                     <h3 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-3">Gestión de Usuarios (Firestore)</h3>
-                    {firestoreLoading && (
+                    {!firebaseReady && (
+                        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="block sm:inline">Inicializando Firebase...</span>
+                        </div>
+                    )}
+                    {firebaseReady && firestoreLoading && (
                         <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
                             <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -598,123 +633,131 @@
                             <span className="block sm:inline"> {firestoreError}</span>
                         </div>
                     )}
+                    {successMessage && (
+                        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
+                            <span className="block sm:inline"> {successMessage}</span>
+                        </div>
+                    )}
                     <p className="text-sm text-gray-600 mb-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
                         <strong className="text-blue-700">Nota:</strong> Los usuarios creados aquí se guardarán permanentemente en Firestore.
                         <br/>
                         Tu ID de sesión (para referencia de la base de datos): <code className="font-mono text-xs bg-gray-200 p-1 rounded">{userId || 'Cargando...'}</code>
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                      <div>
-                        <label htmlFor="new-username" className="block text-gray-700 text-sm font-semibold mb-2">
-                          Nombre de Usuario
-                        </label>
-                        <input
-                          type="text"
-                          id="new-username"
-                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                          value={newUsername}
-                          onChange={(e) => setNewUsername(e.target.value)}
-                          placeholder="Ej: juan.perez"
-                          aria-label="Nombre de Usuario"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="new-user-email" className="block text-gray-700 text-sm font-semibold mb-2">
-                          Email (solo para visualización)
-                        </label>
-                        <input
-                          type="email"
-                          id="new-user-email"
-                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                          value={newUserEmail}
-                          onChange={(e) => setNewUserEmail(e.target.value)}
-                          placeholder="Ej: juan.perez@dominio.com"
-                          aria-label="Email del nuevo usuario"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="new-user-password" className="block text-gray-700 text-sm font-semibold mb-2">
-                          Contraseña
-                        </label>
-                        <input
-                          type="password"
-                          id="new-user-password"
-                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                          value={newUserPassword}
-                          onChange={(e) => setNewUserPassword(e.target.value)}
-                          placeholder="Contraseña segura"
-                          aria-label="Contraseña del nuevo usuario"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="new-user-type" className="block text-gray-700 text-sm font-semibold mb-2">
-                          Tipo de Usuario
-                        </label>
-                        <select
-                          id="new-user-type"
-                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
-                          value={newUserType}
-                          onChange={(e) => setNewUserType(e.target.value)}
-                          aria-label="Tipo de usuario para el nuevo usuario"
-                        >
-                          <option value="sub distribuidor">Sub Distribuidor</option>
-                          <option value="distribuidor">Distribuidor</option>
-                          <option value="direccion">Dirección</option>
-                          <option value="admin">Administrador</option>
-                        </select>
-                      </div>
-                      <div className="flex items-end col-span-1 md:col-span-2 lg:col-span-1">
-                        <button
-                          onClick={handleCreateUser}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
-                          disabled={firestoreLoading}
-                        >
-                          {firestoreLoading ? 'Creando...' : 'Crear Usuario'}
-                        </button>
-                      </div>
-                    </div>
-                    {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
+                    {firebaseReady && (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                            <div>
+                                <label htmlFor="new-username" className="block text-gray-700 text-sm font-semibold mb-2">
+                                Nombre de Usuario
+                                </label>
+                                <input
+                                type="text"
+                                id="new-username"
+                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                value={newUsername}
+                                onChange={(e) => setNewUsername(e.target.value)}
+                                placeholder="Ej: juan.perez"
+                                aria-label="Nombre de Usuario"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="new-user-email" className="block text-gray-700 text-sm font-semibold mb-2">
+                                Email (solo para visualización)
+                                </label>
+                                <input
+                                type="email"
+                                id="new-user-email"
+                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                value={newUserEmail}
+                                onChange={(e) => setNewUserEmail(e.target.value)}
+                                placeholder="Ej: juan.perez@dominio.com"
+                                aria-label="Email del nuevo usuario"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="new-user-password" className="block text-gray-700 text-sm font-semibold mb-2">
+                                Contraseña
+                                </label>
+                                <input
+                                type="password"
+                                id="new-user-password"
+                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                value={newUserPassword}
+                                onChange={(e) => setNewUserPassword(e.target.value)}
+                                placeholder="Contraseña segura"
+                                aria-label="Contraseña del nuevo usuario"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="new-user-type" className="block text-gray-700 text-sm font-semibold mb-2">
+                                Tipo de Usuario
+                                </label>
+                                <select
+                                id="new-user-type"
+                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
+                                value={newUserType}
+                                onChange={(e) => setNewUserType(e.target.value)}
+                                aria-label="Tipo de usuario para el nuevo usuario"
+                                >
+                                <option value="sub distribuidor">Sub Distribuidor</option>
+                                <option value="distribuidor">Distribuidor</option>
+                                <option value="direccion">Dirección</option>
+                                <option value="admin">Administrador</option>
+                                </select>
+                            </div>
+                            <div className="flex items-end col-span-1 md:col-span-2 lg:col-span-1">
+                                <button
+                                onClick={handleCreateUser}
+                                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+                                disabled={firestoreLoading}
+                                >
+                                {firestoreLoading ? 'Creando...' : 'Crear Usuario'}
+                                </button>
+                            </div>
+                            </div>
+                            {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
 
-                    <h4 className="text-xl font-bold text-gray-700 mb-4 border-b pb-2">Usuarios Registrados (Desde Firestore)</h4>
-                    <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-custom-light">
-                      {firestoreLoading && registeredUsers.length === 0 ? (
-                        <p className="text-center text-gray-600 py-4">Cargando usuarios de la base de datos...</p>
-                      ) : (
-                        <table className="min-w-full bg-white excel-table">
-                          <thead>
-                            <tr>
-                              <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
-                                Usuario
-                              </th>
-                              <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
-                                Email
-                              </th>
-                              <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
-                                Tipo
-                              </th>
-                              <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
-                                ID (Firestore)
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {registeredUsers.map((user, index) => (
-                              <tr key={user.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
-                                <td className="py-3 px-4 whitespace-nowrap text-gray-800 border-b border-gray-100 table-cell-responsive">{user.username}</td>
-                                <td className="py-3 px-4 whitespace-nowrap text-gray-700 border-b border-gray-100 table-cell-responsive">{user.email || 'N/A'}</td>
-                                <td className="py-3 px-4 whitespace-nowrap text-gray-700 border-b border-gray-100 capitalize table-cell-responsive">{user.type}</td>
-                                <td className="py-3 px-4 whitespace-nowrap text-gray-500 text-xs border-b border-gray-100 table-cell-responsive">{user.id}</td>
-                              </tr>
-                            ))}
-                            {registeredUsers.length === 0 && (
-                              <tr>
-                                <td colSpan="4" className="py-4 text-center text-gray-500">No hay usuarios registrados en la base de datos.</td>
-                              </tr>
+                            <h4 className="text-xl font-bold text-gray-700 mb-4 border-b pb-2">Usuarios Registrados (Desde Firestore)</h4>
+                            <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-custom-light">
+                            {firestoreLoading && registeredUsers.length === 0 ? (
+                                <p className="text-center text-gray-600 py-4">Cargando usuarios de la base de datos...</p>
+                            ) : (
+                                <table className="min-w-full bg-white excel-table">
+                                <thead>
+                                    <tr>
+                                    <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                                        Usuario
+                                    </th>
+                                    <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                                        Email
+                                    </th>
+                                    <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                                        Tipo
+                                    </th>
+                                    <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                                        ID (Firestore)
+                                    </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {registeredUsers.map((user, index) => (
+                                    <tr key={user.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
+                                        <td className="py-3 px-4 whitespace-nowrap text-gray-800 border-b border-gray-100 table-cell-responsive">{user.username}</td>
+                                        <td className="py-3 px-4 whitespace-nowrap text-gray-700 border-b border-gray-100 table-cell-responsive">{user.email || 'N/A'}</td>
+                                        <td className="py-3 px-4 whitespace-nowrap text-gray-700 border-b border-gray-100 capitalize table-cell-responsive">{user.type}</td>
+                                        <td className="py-3 px-4 whitespace-nowrap text-gray-500 text-xs border-b border-gray-100 table-cell-responsive">{user.id}</td>
+                                    </tr>
+                                    ))}
+                                    {registeredUsers.length === 0 && (
+                                    <tr>
+                                        <td colSpan="4" className="py-4 text-center text-gray-500">No hay usuarios registrados en la base de datos.</td>
+                                    </tr>
+                                    )}
+                                </tbody>
+                                </table>
                             )}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
+                        </>
+                    )}
                   </div>
                 )}
 
@@ -830,7 +873,18 @@
 
         // Mount the React application to the 'root' div AFTER the window has loaded
         window.onload = function() {
-            ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+            try {
+                ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+            } catch (e) {
+                console.error("Error during initial React render:", e);
+                // Display a fallback message if React fails to mount
+                const rootDiv = document.getElementById('root');
+                if (rootDiv) {
+                    rootDiv.innerHTML = '<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: #fef2f2; color: #ef4444; font-family: \'Inter\', sans-serif; padding: 20px; border: 1px solid #f87171; border-radius: 8px; margin: 20px;">' +
+                                        '<p style="font-size: 1.25rem; font-weight: 600; text-align: center;">Ha ocurrido un error crítico al iniciar la aplicación. Por favor, verifica la consola del navegador (<span style="font-family: monospace;">F12</span>) para más detalles.</p>' +
+                                        '</div>';
+                }
+            }
         };
     </script>
 </body>
