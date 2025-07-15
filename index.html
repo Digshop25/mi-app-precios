@@ -108,7 +108,7 @@
                     // !!! IMPORTANTE: REEMPLAZA LOS VALORES DE ABAJO CON TU CONFIGURACIÓN REAL DE FIREBASE !!!
                     // Puedes encontrar estos valores en tu Consola de Firebase -> Configuración del Proyecto -> Tus apps (Web)
                     firebaseConfig = {
-                        apiKey: "AIzaSyBfCD3_opZniAHRXat42APlrhHwh_BpGPg"", // <--- REEMPLAZA ESTO CON TU CLAVE API REAL
+                        apiKey: "AIzaSyBfCD3_opZniAHRXat42APlrhHwh_BpGPg", // <--- REEMPLAZA ESTO CON TU CLAVE API REAL
                         authDomain: "lista-de-precios-3d4df.firebaseapp.com", // <--- REEMPLAZA ESTO CON TU authDomain REAL
                         projectId: "lista-de-precios-3d4df", // <--- REEMPLAZA ESTO CON TU projectId REAL
                         storageBucket: "lista-de-precios-3d4df.firebasestorage.app", // <--- REEMPLAZA ESTO CON TU storageBucket REAL
@@ -173,7 +173,7 @@
         ];
 
         // Hardcoded user data for authentication (local management)
-        // These are for login validation only. Actual users for admin panel are from Firestore.
+        // These are for fallback/initial login validation. Actual users for admin panel are from Firestore.
         const localMockLoginUsers = [
           { id: 'mock-admin', username: 'admin', password: 'password123', type: 'admin', email: 'admin@example.com' },
           { id: 'mock-direccion', username: 'direccion', password: 'password123', type: 'direccion', email: 'direccion@example.com' },
@@ -446,27 +446,55 @@
               setError(`Error de red o CORS: ${err.message}. Asegúrate de que la URL sea pública y accesible.`);
               setPriceData(initialMockPriceData);
             } finally {
-              setCsvLoading(false);
+              setCsvLoading(false); // Ensure loading state is reset
             }
           };
 
-          // Handle login attempt (still uses local mock users for simplicity of this demo)
+          // Handle login attempt (NOW uses Firestore for authentication)
           const handleLogin = async (e) => {
             e.preventDefault();
             setError(null);
+            setFirestoreLoading(true); // Indicate login process is loading
 
-            // This currently uses localMockLoginUsers.
-            // In the next step, we can modify this to query Firestore for users.
-            const foundUser = localMockLoginUsers.find(u => u.username === username && u.password === password);
+            if (!firebaseReady || !window.db) {
+                setError('Firebase no está listo. Por favor, espera un momento e intenta de nuevo.');
+                setFirestoreLoading(false);
+                return;
+            }
 
-            if (foundUser) {
-              setUserType(foundUser.type);
-              setError(null);
-              console.log(`Usuario ${foundUser.username} (${foundUser.type}) ha iniciado sesión.`);
-              // Automatically load CSV after successful login
-              await loadCsvFromUrl(DEFAULT_CSV_URL);
-            } else {
-              setError("Nombre de usuario o contraseña incorrectos.");
+            try {
+                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+                // Query Firestore for a user with matching username and password
+                const q = window.query(
+                    usersCollectionRef,
+                    window.where('username', '==', username),
+                    window.where('password', '==', password) // WARNING: Storing passwords in plaintext is INSECURE for production. Use Firebase Auth for real apps.
+                );
+                const querySnapshot = await window.getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    const foundUserDoc = querySnapshot.docs[0].data();
+                    setUserType(foundUserDoc.type);
+                    setError(null);
+                    console.log(`Usuario ${foundUserDoc.username} (${foundUserDoc.type}) ha iniciado sesión desde Firestore.`);
+                    await loadCsvFromUrl(DEFAULT_CSV_URL); // Load CSV after successful login
+                } else {
+                    // Fallback to local mock users if not found in Firestore
+                    const foundLocalUser = localMockLoginUsers.find(u => u.username === username && u.password === password);
+                    if (foundLocalUser) {
+                        setUserType(foundLocalUser.type);
+                        setError(null);
+                        console.log(`Usuario ${foundLocalUser.username} (${foundLocalUser.type}) ha iniciado sesión desde usuarios locales.`);
+                        await loadCsvFromUrl(DEFAULT_CSV_URL);
+                    } else {
+                        setError("Nombre de usuario o contraseña incorrectos.");
+                    }
+                }
+            } catch (e) {
+                console.error("Error during login from Firestore:", e);
+                setError(`Error al iniciar sesión: ${e.message}. Por favor, revisa la consola.`);
+            } finally {
+                setFirestoreLoading(false); // Reset loading state after login attempt
             }
           };
 
@@ -512,7 +540,7 @@
                 await window.addDoc(usersCollectionRef, {
                     username: newUsername,
                     email: newUserEmail,
-                    password: newUserPassword, // In a real app, hash this!
+                    password: newUserPassword, // WARNING: Storing passwords in plaintext is INSECURE for production. Use Firebase Auth for real apps.
                     type: newUserType,
                     createdAt: new Date(),
                     createdBy: userId // Record who created this user
@@ -606,7 +634,7 @@
                       type="submit"
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
                     >
-                      Entrar
+                      {firestoreLoading ? 'Iniciando sesión...' : 'Entrar'}
                     </button>
                   </form>
                   <p className="text-center text-gray-600 text-sm mt-6 leading-relaxed">
