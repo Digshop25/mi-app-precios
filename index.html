@@ -9,13 +9,30 @@
     <!-- Google Fonts - Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
+        /* 🔵 Estilos modernos personalizados */
+        :root {
+            --color-bg-card: #f9fbff;
+            --color-border-card: #dbeafe;
+            --color-accent: #3b82f6; /* Tailwind blue-500 */
+            --color-accent-hover: #2563eb; /* Tailwind blue-600 */
+            --color-text-primary: #1e293b; /* Tailwind slate-800 */
+            --color-shadow: rgba(59, 130, 246, 0.15); /* Shadow based on accent color */
+        }
+
         body {
             font-family: 'Inter', sans-serif;
+            color: var(--color-text-primary);
+            background-color: #f3f4f6; /* Light gray background for the whole page */
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            background-color: #f3f4f6; /* Light gray background for the whole page */
         }
+
+        h1, h2, h3 {
+            font-weight: 700; /* Bold */
+            color: var(--color-accent); /* Accent color for headings */
+        }
+
         /* Custom shadows for better visual appeal */
         .shadow-custom-light {
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -29,14 +46,36 @@
         .text-shadow-lg {
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
         }
-        /* Responsive adjustments for table cells */
-        @media (max-width: 640px) {
-            .table-cell-responsive {
-                font-size: 0.75rem; /* Smaller font on small screens */
-                padding: 0.5rem 0.75rem; /* Adjust padding */
-            }
+
+        /* Card Modern Style */
+        .card-modern {
+            background-color: var(--color-bg-card);
+            border: 1px solid var(--color-border-card);
+            border-radius: 1rem; /* Rounded corners */
+            box-shadow: 0 8px 16px var(--color-shadow); /* Soft shadow */
+            padding: 1.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease; /* Smooth hover effects */
         }
-        /* Specific styles for Excel-like table appearance */
+        .card-modern:hover {
+            transform: translateY(-4px); /* Slight lift on hover */
+            box-shadow: 0 12px 24px rgba(59, 130, 246, 0.25); /* Enhanced shadow on hover */
+        }
+
+        /* Button Modern Style */
+        .btn-modern {
+            background-color: var(--color-accent);
+            color: white;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+        .btn-modern:hover {
+            background-color: var(--color-accent-hover);
+            transform: scale(1.02); /* Slight scale for button hover */
+        }
+
+        /* Excel-like Table Appearance */
         .excel-table {
             border-collapse: collapse; /* Ensures single borders */
             width: 100%;
@@ -44,24 +83,41 @@
         .excel-table th {
             white-space: normal; /* Allow text wrapping in headers */
             vertical-align: middle; /* Center text vertically in headers */
+            text-align: center; /* Center align headers by default */
+            word-break: break-word; /* Ensure long words break */
+            min-width: 80px; /* Minimum width for columns to encourage wrapping */
+            box-sizing: border-box; /* Include padding and border in the element's total width and height */
         }
         .excel-table th, .excel-table td {
-            border: 1px solid #e2e8f0; /* Light gray border for all cells */
-            padding: 0.75rem 1rem; /* Consistent padding */
-            /* text-align: left;  Removed default, using classes instead */
+            border: 1px solid #cce0f0; /* Slightly darker light blue border for all cells */
+            padding: 0.75rem 0.8rem; /* Consistent padding, slightly less horizontal for more columns */
         }
         .excel-table thead th {
-            background-color: #e2e8f0; /* Light gray background for headers */
+            background-color: #eaf3fa; /* Lighter blue background for headers */
             font-weight: 600; /* Semi-bold headers */
-            color: #4a5568; /* Darker text for headers */
+            color: #2a6592; /* Darker blue text for headers */
             text-transform: uppercase;
-            font-size: 0.875rem; /* Slightly larger font for headers */
+            font-size: 0.8rem; /* Slightly smaller font for headers to fit more text */
         }
         .excel-table tbody tr:nth-child(even) {
             background-color: #f8fafc; /* Lighter alternating row color */
         }
         .excel-table tbody tr:hover {
-            background-color: #f0f4f8; /* Subtle hover effect */
+            background-color: #e0f0ff; /* Subtle hover effect with light blue */
+        }
+        /* Specific alignment for price columns in tbody */
+        .excel-table tbody td.text-right {
+            font-family: 'Inter', sans-serif; /* Ensure consistent font */
+            font-weight: 500; /* Slightly bolder for numbers */
+            color: #333; /* Darker color for numbers */
+        }
+
+        /* Responsive adjustments for table cells */
+        @media (max-width: 640px) {
+            .table-cell-responsive {
+                font-size: 0.75rem; /* Smaller font on small screens */
+                padding: 0.5rem 0.75rem; /* Adjust padding */
+            }
         }
     </style>
 
@@ -652,8 +708,8 @@
 
           if (!userType) {
             return (
-              <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 p-4 font-inter">
-                <div className="bg-white p-8 rounded-xl shadow-custom-strong w-full max-w-md border border-gray-200">
+              <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-white p-4 font-inter">
+                <div className="card-modern w-full max-w-md">
                   <h2 className="text-3xl font-bold text-center text-gray-800 mb-4">LISTA DE PRECIOS DS</h2>
                   <p className="text-center text-gray-600 text-md mb-8">Bienvenido, favor de ingresar su usuario y contraseña para ver la lista de precios</p>
 
@@ -714,7 +770,7 @@
                         </div>
                         <button
                             type="submit"
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+                            className="btn-modern w-full"
                             disabled={firestoreLoading} // Disable button during login attempt
                         >
                             {firestoreLoading ? 'Iniciando sesión...' : 'Entrar'}
@@ -823,7 +879,7 @@
                                 <input
                                 type="text"
                                 id="new-username"
-                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
                                 value={newUsername}
                                 onChange={(e) => setNewUsername(e.target.value)}
                                 placeholder="Ej: juan.perez"
@@ -837,7 +893,7 @@
                                 <input
                                 type="email"
                                 id="new-user-email"
-                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
                                 value={newUserEmail}
                                 onChange={(e) => setNewUserEmail(e.target.value)}
                                 placeholder="Ej: juan.perez@dominio.com"
@@ -851,7 +907,7 @@
                                 <input
                                 type="password"
                                 id="new-user-password"
-                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
                                 value={newUserPassword}
                                 onChange={(e) => setNewUserPassword(e.target.value)}
                                 placeholder="Contraseña segura"
@@ -864,7 +920,7 @@
                                 </label>
                                 <select
                                 id="new-user-type"
-                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
+                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
                                 value={newUserType}
                                 onChange={(e) => setNewUserType(e.target.value)}
                                 aria-label="Tipo de usuario para el nuevo usuario"
@@ -878,7 +934,7 @@
                             <div className="flex items-end col-span-1 md:col-span-2 lg:col-span-1">
                                 <button
                                 onClick={handleCreateUser}
-                                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+                                className="btn-modern w-full"
                                 disabled={firestoreLoading}
                                 >
                                 {firestoreLoading ? 'Creando...' : 'Crear Usuario'}
@@ -956,7 +1012,7 @@
                         </label>
                         <select
                             id="brand-select"
-                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
+                            className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 w-full bg-white"
                             value={selectedBrand}
                             onChange={(e) => setSelectedBrand(e.target.value)}
                             aria-label="Seleccionar Marca"
@@ -974,7 +1030,7 @@
                         <input
                             type="text"
                             id="model-search"
-                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                            className="border border-gray-300 rounded-lg px-4 py-2 w-full shadow-sm focus:ring-2 focus:ring-blue-500"
                             placeholder="Ej: Nitro 5, ACN5-001"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
