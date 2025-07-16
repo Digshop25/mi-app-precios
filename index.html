@@ -369,10 +369,6 @@
           const [firebaseReady, setFirebaseReady] = React.useState(false); // Flag for Firebase SDKs being ready
           const [adminUserExists, setAdminUserExists] = React.useState(false); // Flag for admin user existence
 
-          // New states for initial admin user creation
-          const [creatingAdminUser, setCreatingAdminUser] = React.useState(false);
-          const [adminCreationMessage, setAdminCreationMessage] = React.useState(null);
-
           // New states for new user creation form (for admin)
           const [newEmail, setNewEmail] = React.useState(''); // Use email for new user creation
           const [newPassword, setNewPassword] = React.useState('');
@@ -413,7 +409,9 @@
                     console.log("Firebase Auth UID (React):", user.uid);
 
                     // Fetch user's role from Firestore using UID
-                    const userDocRef = window.doc(window.db, `artifacts/${window.appId}/public/data/users`, user.uid);
+                    const userDocPath = `artifacts/${window.appId}/public/data/users/${user.uid}`;
+                    console.log("Attempting to fetch user role from path:", userDocPath); // Debugging line
+                    const userDocRef = window.doc(window.db, userDocPath);
                     const unsubscribeUserRole = window.onSnapshot(userDocRef, (docSnap) => {
                         if (docSnap.exists()) {
                             setUserType(docSnap.data().type);
@@ -443,7 +441,7 @@
             // Listener for all registered users (roles) to determine adminUserExists
             // This will update registeredUsers and adminUserExists whenever user roles change in Firestore
             const usersCollectionPath = `artifacts/${window.appId}/public/data/users`;
-            console.log("Firestore path for users collection:", usersCollectionPath); // Log the full path
+            console.log("Firestore path for users collection (for admin check):", usersCollectionPath); // Debugging line
             const usersCollectionRef = window.collection(window.db, usersCollectionPath);
             const unsubscribeUsers = window.onSnapshot(usersCollectionRef, (snapshot) => {
                 const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -591,64 +589,6 @@
             }
           };
 
-          // Function to create the initial admin user in Firebase Auth and Firestore
-          const createInitialAdminUser = async () => {
-            if (!firebaseReady || !window.auth || !window.db || !window.appId) {
-                setAdminCreationMessage('Firebase no está listo. Por favor, espera un momento.');
-                return;
-            }
-            setCreatingAdminUser(true);
-            setAdminCreationMessage(null);
-            setError(null); // Clear general error
-
-            const adminEmail = 'admin@example.com'; // Default admin email
-            const adminPassword = 'password123'; // Default admin password
-
-            try {
-                // 1. Create user in Firebase Authentication
-                let userCredential;
-                try {
-                    userCredential = await window.createUserWithEmailAndPassword(window.auth, adminEmail, adminPassword);
-                    console.log("Admin user created in Firebase Auth.");
-                } catch (e) {
-                    if (e.code === 'auth/email-already-in-use') {
-                        console.log("Admin email already in use in Firebase Auth. Attempting to sign in.");
-                        // If email is already in use, try to sign in (might be a previous incomplete setup)
-                        userCredential = await window.signInWithEmailAndPassword(window.auth, adminEmail, adminPassword);
-                    } else {
-                        throw e; // Re-throw other errors
-                    }
-                }
-
-                const adminUid = userCredential.user.uid;
-                const userDocRef = window.doc(window.db, `artifacts/${window.appId}/public/data/users`, adminUid);
-
-                // 2. Set the role in Firestore, using the Firebase Auth UID as the document ID
-                await window.setDoc(userDocRef, {
-                    email: adminEmail,
-                    type: 'admin',
-                    createdAt: new Date(),
-                }, { merge: true }); // Use merge: true to avoid overwriting existing fields if any
-
-                setAdminUserExists(true); // Update local state
-                setAdminCreationMessage('Usuario admin creado/verificado con éxito. Ahora puedes iniciar sesión con admin@example.com y password123.');
-                setEmail(adminEmail);
-                setPassword(adminPassword);
-            } catch (e) {
-                console.error("Error creating initial admin user:", e);
-                let errorMessage = `Error al crear el usuario admin: ${e.message}.`;
-                if (e.code === 'auth/weak-password') {
-                    errorMessage = "La contraseña es muy débil. Debe tener al menos 6 caracteres.";
-                } else if (e.code === 'auth/operation-not-allowed') {
-                    errorMessage = "La autenticación por correo/contraseña no está habilitada en tu proyecto de Firebase.";
-                }
-                setAdminCreationMessage(errorMessage);
-            } finally {
-                setCreatingAdminUser(false);
-            }
-          };
-
-
           // Handle logout using Firebase Authentication
           const handleLogout = async () => {
             try {
@@ -686,7 +626,9 @@
                 console.log("New user created in Firebase Auth:", newUserUid);
 
                 // 2. Store user role in Firestore, using the Firebase Auth UID as the document ID
-                const userDocRef = window.doc(window.db, `artifacts/${window.appId}/public/data/users`, newUserUid);
+                const newUserDocPath = `artifacts/${window.appId}/public/data/users/${newUserUid}`;
+                console.log("Attempting to set new user role at path:", newUserDocPath); // Debugging line
+                const userDocRef = window.doc(window.db, newUserDocPath);
                 await window.setDoc(userDocRef, {
                     email: newEmail,
                     type: newUserType,
@@ -855,71 +797,62 @@
 
                   {firebaseReady && !firestoreLoading && !firestoreError && ( // Only show form if Firebase is initialized and no critical error
                     <>
-                        <form onSubmit={handleLogin}>
-                        <div className="mb-6">
-                            <label htmlFor="email" className="block text-gray-700 text-sm font-semibold mb-2">
-                            Correo Electrónico
-                            </label>
-                            <input
-                            type="email"
-                            id="email"
-                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            aria-label="Correo Electrónico"
-                            />
-                        </div>
-                        <div className="mb-6">
-                            <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
-                            Contraseña
-                            </label>
-                            <input
-                            type="password"
-                            id="password"
-                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            aria-label="Contraseña"
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            className="btn-modern w-full"
-                            disabled={firestoreLoading} // Disable button during login attempt
-                        >
-                            {firestoreLoading ? 'Iniciando sesión...' : 'Entrar'}
-                        </button>
-                        </form>
-
-                        {!adminUserExists && !creatingAdminUser && ( // Show only if admin doesn't exist and not currently creating
-                            <div className="mt-6 text-center">
-                                {adminCreationMessage && (
-                                    <div className={`px-4 py-2 rounded-md mb-3 text-sm ${adminCreationMessage.includes('éxito') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} border ${adminCreationMessage.includes('éxito') ? 'border-green-400' : 'border-red-400'}`}>
-                                        {adminCreationMessage}
-                                    </div>
-                                )}
-                                <button
-                                    onClick={createInitialAdminUser}
-                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
-                                    disabled={creatingAdminUser}
-                                >
-                                    {creatingAdminUser ? 'Creando Admin...' : 'Crear Usuario Admin Inicial (Solo una vez)'}
-                                </button>
-                                <p className="text-gray-500 text-xs mt-2">
-                                    Si no puedes iniciar sesión, haz clic aquí para crear el usuario 'admin@example.com' con contraseña 'password123'.
+                        {!adminUserExists ? (
+                            <div className="mt-6 text-center bg-blue-50 border border-blue-200 p-4 rounded-lg shadow-sm">
+                                <p className="text-blue-700 font-semibold mb-2">
+                                    ¡Atención! No se encontró un usuario administrador.
+                                </p>
+                                <p className="text-blue-600 text-sm">
+                                    Por favor, crea el usuario administrador manualmente en la consola de Firebase:
+                                </p>
+                                <ul className="text-left text-blue-600 text-sm mt-2 list-disc list-inside">
+                                    <li>Ve a **Authentication > Users** y agrega un nuevo usuario (ej: `admin@example.com`, `password123`).</li>
+                                    <li>Copia su **User UID**.</li>
+                                    <li>Ve a **Firestore Database > Data**, navega a `artifacts/lista-de-precios-3d4df/public/data/users`.</li>
+                                    <li>Haz clic en "Add document", pega el User UID como ID del documento, y añade un campo `type` con valor `admin`.</li>
+                                </ul>
+                                <p className="text-blue-600 text-sm mt-3 font-semibold">
+                                    Una vez creado, recarga la página para iniciar sesión.
                                 </p>
                             </div>
-                        )}
-                        {creatingAdminUser && (
-                            <div className="mt-6 text-center text-blue-700 flex items-center justify-center gap-2">
-                                <svg className="animate-spin h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span>Creando usuario admin...</span>
+                        ) : (
+                            <form onSubmit={handleLogin}>
+                            <div className="mb-6">
+                                <label htmlFor="email" className="block text-gray-700 text-sm font-semibold mb-2">
+                                Correo Electrónico
+                                </label>
+                                <input
+                                type="email"
+                                id="email"
+                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                aria-label="Correo Electrónico"
+                                />
                             </div>
+                            <div className="mb-6">
+                                <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
+                                Contraseña
+                                </label>
+                                <input
+                                type="password"
+                                id="password"
+                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                aria-label="Contraseña"
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                className="btn-modern w-full"
+                                disabled={firestoreLoading} // Disable button during login attempt
+                            >
+                                {firestoreLoading ? 'Iniciando sesión...' : 'Entrar'}
+                            </button>
+                            </form>
                         )}
                     </>
                   )}
