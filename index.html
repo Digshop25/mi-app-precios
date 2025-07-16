@@ -249,7 +249,9 @@
                 window.firebaseApp = app;
                 window.auth = getAuth(app);
                 window.db = getFirestore(app);
-                window.appId = currentAppId;
+                window.appId = currentAppId; // Set the appId globally
+
+                console.log("Firebase App ID being used:", window.appId); // Log the appId for debugging
 
                 // Initial anonymous sign-in if no custom token is provided
                 if (typeof __initial_auth_token !== 'undefined') {
@@ -1087,7 +1089,7 @@
                     </div>
                 )}
 
-                {/* Search/Filter Module */}
+                <!-- Search/Filter Module -->
                 <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-start gap-4">
                     <div className="w-full sm:w-auto flex-grow">
                         <label htmlFor="brand-select" className="block text-gray-700 text-sm font-semibold mb-2">
