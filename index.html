@@ -387,32 +387,24 @@
           // Effect for Firebase initialization and authentication state
           React.useEffect(() => {
             // This effect runs once to initialize Firebase listeners and set up core states
-            if (!window.firebaseApp || !window.auth || !window.db) {
-                // Poll until global Firebase instances are available
-                const checkGlobalFirebase = setInterval(() => {
-                    if (window.firebaseApp && window.auth && window.db) {
-                        clearInterval(checkGlobalFirebase);
-                        setFirebaseReady(true);
-                        setFirestoreLoading(false); // Stop initial loading once Firebase is ready
-                        if (window.firebaseInitializationError) {
-                            setFirestoreError(window.firebaseInitializationError);
-                        }
-                    } else if (window.firebaseInitializationError) {
-                        clearInterval(checkGlobalFirebase);
+            // It polls until global Firebase instances are available
+            const checkGlobalFirebase = setInterval(() => {
+                if (window.firebaseApp && window.auth && window.db) {
+                    clearInterval(checkGlobalFirebase);
+                    setFirebaseReady(true);
+                    setFirestoreLoading(false); // Stop initial loading once Firebase is ready
+                    if (window.firebaseInitializationError) {
                         setFirestoreError(window.firebaseInitializationError);
-                        setFirestoreLoading(false);
                     }
-                }, 100); // Check every 100ms
-                return () => clearInterval(checkGlobalFirebase);
-            } else {
-                setFirebaseReady(true);
-                setFirestoreLoading(false);
-                if (window.firebaseInitializationError) {
+                } else if (window.firebaseInitializationError) {
+                    clearInterval(checkGlobalFirebase);
                     setFirestoreError(window.firebaseInitializationError);
+                    setFirestoreLoading(false);
                 }
-            }
+            }, 100); // Check every 100ms
 
             // Listener for Firebase Authentication state changes
+            // This will update userId and userType whenever auth state changes (login, logout)
             const unsubscribeAuth = window.onAuthStateChanged(window.auth, async (user) => {
                 if (user) {
                     setUserId(user.uid);
@@ -447,6 +439,7 @@
             });
 
             // Listener for all registered users (roles) to determine adminUserExists
+            // This will update registeredUsers and adminUserExists whenever user roles change in Firestore
             const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
             const unsubscribeUsers = window.onSnapshot(usersCollectionRef, (snapshot) => {
                 const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -460,10 +453,11 @@
 
 
             return () => {
+                clearInterval(checkGlobalFirebase); // Cleanup polling interval
                 unsubscribeAuth(); // Cleanup auth listener
                 unsubscribeUsers(); // Cleanup users listener
             };
-          }, [firebaseReady]); // Re-run if firebaseReady changes (i.e., after initial global setup)
+          }, []); // Empty dependency array means it runs once on mount
 
 
           // Function to clean and parse numerical values from CSV
