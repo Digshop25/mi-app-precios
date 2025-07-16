@@ -174,6 +174,108 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- PapaParse CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <!-- Firebase CDN -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; // Added getDocs
+
+        // Global variables for Firebase (will be available in the React component scope)
+        window.firebaseApp = null;
+        window.db = null;
+        window.auth = null;
+        window.firebaseInitialized = false;
+        window.appId = 'default-app-id'; // Ensure appId has a default
+        window.globalFirebaseError = null; // To store critical errors during initialization
+        // This flag indicates if the global Firebase initialization process is still running
+        window.isFirebaseInitializingGlobally = true;
+
+        // Expose Firestore functions globally for the Babel script to use
+        window.collection = collection;
+        window.onSnapshot = onSnapshot;
+        window.addDoc = addDoc;
+        window.query = query;
+        window.where = where;
+        window.getDocs = getDocs; // Expose getDocs for querying
+
+        // Initialize Firebase and authenticate
+        const initFirebase = async () => {
+            // Prevent re-initialization if already done or failed critically
+            if (window.firebaseInitialized || window.globalFirebaseError || !window.isFirebaseInitializingGlobally) {
+                console.log("Firebase already initialized, failed, or stopped. Skipping re-initialization.");
+                return;
+            }
+
+            console.log("Starting Firebase initialization...");
+
+            try {
+                let firebaseConfig = {};
+                let currentAppId = 'default-app-id';
+
+                // Check if __firebase_config is defined (Canvas preview environment)
+                if (typeof __firebase_config !== 'undefined') {
+                    firebaseConfig = JSON.parse(__firebase_config);
+                    currentAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    console.log("Firebase Config (from Canvas):", firebaseConfig);
+                } else {
+                    // For GitHub Pages or local deployment, user needs to provide their actual config
+                    // !!! IMPORTANTE: REEMPLAZA LOS VALORES DE ABAJO CON TU CONFIGURACIÓN REAL DE FIREBASE !!!
+                    // Los valores a continuación son los que proporcionaste en la imagen.
+                    firebaseConfig = {
+                        apiKey: "AIzaSyBfCD3_opZniAHRXat42APlrhHwh_BpGPg",
+                        authDomain: "lista-de-precios-3d4df.firebaseapp.com",
+                        projectId: "lista-de-precios-3d4df",
+                        storageBucket: "lista-de-precios-3d4df.firebasestorage.app",
+                        messagingSenderId: "561816433633",
+                        appId: "1:561816433633:web:64312f4928ae92c40d58a0", // Corregido según tu imagen
+                        measurementId: "G-GKQWC526ET" // Añadido desde tu imagen
+                    };
+                    currentAppId = firebaseConfig.projectId || 'default-app-id'; // Use project ID as default app ID if available
+
+                    console.warn("ADVERTENCIA: Usando configuración de Firebase hardcodeada. Recuerda reemplazar los marcadores de posición con los detalles reales de tu proyecto de Firebase para el despliegue en producción.");
+                    console.log("Firebase Config (hardcodeada):", firebaseConfig);
+                }
+
+                // Explicit check for API key
+                if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === 'YOUR_FIREBASE_API_KEY' || firebaseConfig.apiKey === '') {
+                    throw new Error("Firebase API Key is missing or invalid in the configuration. Please replace 'YOUR_FIREBASE_API_KEY' with your actual key from Firebase Console.");
+                }
+
+                const app = initializeApp(firebaseConfig);
+                console.log("Firebase app initialized.");
+                const authInstance = getAuth(app);
+                console.log("Firebase auth obtained.");
+                const dbInstance = getFirestore(app);
+                console.log("Firebase firestore obtained.");
+
+                window.firebaseApp = app;
+                window.db = dbInstance;
+                window.auth = authInstance;
+                window.appId = currentAppId;
+
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(window.auth, __initial_auth_token);
+                    console.log("Signed in with custom token.");
+                } else {
+                    await signInAnonymously(window.auth);
+                    console.log("Signed in anonymously.");
+                }
+
+                window.firebaseInitialized = true;
+                console.log("Firebase initialized and authenticated successfully.");
+
+            } catch (e) {
+                console.error("Error al inicializar Firebase o iniciar sesión:", e);
+                window.globalFirebaseError = `Error crítico al inicializar Firebase: ${e.message}. Por favor, revisa la consola del navegador.`;
+            } finally {
+                window.isFirebaseInitializingGlobally = false; // Ensure this flag is always reset
+            }
+        };
+
+        // Call initialization on script load
+        initFirebase();
+    </script>
 </head>
 <body>
     <div id="root"></div>
@@ -186,14 +288,6 @@
           { id: 3, 'Tipo Equipo': 'Teclado', Marca: 'HyperX', Equipo: 'Alloy Origins', 'Codigo SAP': 'HXAO-003', Color: 'Negro', 'Precio Publico (IVA incluido)': 110, 'PrecioFacturacion distribuidor (con sim e IVA Incluido)': 95, 'Precio subdistribuidor (IVA Incluido)': 80, 'Inicio de Vigencia': '2024-01-01', 'Fin de Vigencia': '2024-12-31', 'Utilidad DS': 0.10 },
           { id: 4, 'Tipo Equipo': 'Mouse', Marca: 'Logitech', Equipo: 'G502 Hero', 'Codigo SAP': 'LGG502-004', Color: 'Negro', 'Precio Publico (IVA incluido)': 50, 'PrecioFacturacion distribuidor (con sim e IVA Incluido)': 40, 'Precio subdistribuidor (IVA Incluido)': 30, 'Inicio de Vigencia': '2024-01-01', 'Fin de Vigencia': '2024-12-31', 'Utilidad DS': 0.05 },
           { id: 5, 'Tipo Equipo': 'Auriculares', Marca: 'Razer', Equipo: 'Kraken X', 'Codigo SAP': 'RZKX-005', Color: 'Verde', 'Precio Publico (IVA incluido)': 160, 'PrecioFacturacion distribuidor (con sim e IVA Incluido)': 140, 'Precio subdistribuidor (IVA Incluido)': 120, 'Inicio de Vigencia': '2024-01-01', 'Fin de Vigencia': '2024-12-31', 'Utilidad DS': 0.12 },
-        ];
-
-        // Mock user data for authentication
-        const mockUsers = [
-          { username: 'admin', password: 'password123', type: 'admin' },
-          { username: 'direccion', password: 'password123', type: 'direccion' },
-          { username: 'distribuidor', password: 'password123', type: 'distribuidor' },
-          { username: 'subdistribuidor', password: 'password123', type: 'sub distribuidor' },
         ];
 
         // Define column headers and their display names, including alignment
@@ -257,20 +351,140 @@
         };
 
         // !!! IMPORTANT: REPLACE THIS URL WITH THE RAW URL OF YOUR CSV FILE ON GITHUB !!!
-        // Example: https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/YOUR_FILE.csv
+        // Example: https://raw.githubusercontent.com/Digshop25/mi-app-precios/main/Lista%2028a%20MOD%202.csv';
         const DEFAULT_CSV_URL = 'https://raw.githubusercontent.com/Digshop25/mi-app-precios/main/Lista%2028a%20MOD%202.csv'; // Reemplaza esta URL con la tuya real
 
         // Main App component
         function App() {
           const [userType, setUserType] = React.useState(null);
-          const [username, setUsername] = React.useState(''); // Usamos 'username' para los usuarios mock
+          const [username, setUsername] = React.useState('');
           const [password, setPassword] = React.useState('');
           const [error, setError] = React.useState(null); // General error for login/CSV
           const [priceData, setPriceData] = React.useState(initialMockPriceData);
           const [csvLoading, setCsvLoading] = React.useState(false); // State for CSV loading indicator
 
+          // Firestore related states
+          const [registeredUsers, setRegisteredUsers] = React.useState([]); // Users fetched from Firestore
+          const [firestoreLoading, setFirestoreLoading] = React.useState(true); // Initial loading for Firestore users
+          const [firestoreError, setFirestoreError] = React.useState(null);
+          const [userId, setUserId] = React.useState(null); // Firebase Auth UID
+          const [firebaseReady, setFirebaseReady] = React.useState(false); // New state for Firebase readiness
+          // isFirebaseInitializing local state now directly reflects the global flag
+          const [isFirebaseInitializing, setIsFirebaseInitializing] = React.useState(window.isFirebaseInitializingGlobally);
+
+
+          // New states for initial admin user creation
+          const [adminUserExists, setAdminUserExists] = React.useState(false);
+          const [creatingAdminUser, setCreatingAdminUser] = React.useState(false);
+          const [adminCreationMessage, setAdminCreationMessage] = React.useState(null);
+
+
+          // New states for new user creation form
+          const [newUsername, setNewUsername] = React.useState('');
+          const [newUserEmail, setNewUserEmail] = React.useState('');
+          const [newUserPassword, setNewUserPassword] = React.useState('');
+          const [newUserType, setNewUserType] = React.useState('sub distribuidor');
+          const [successMessage, setSuccessMessage] = React.useState(null); // New state for success messages
+
+          // New states for search/filter
+          const [selectedBrand, setSelectedBrand] = React.useState(''); // '' means all brands
+          const [searchTerm, setSearchTerm] = React.useState('');
+
           // New state for selected items for printing
           const [selectedItems, setSelectedItems] = React.useState(new Set()); // Stores IDs of selected items
+
+          // Effect for Firebase readiness and global error handling
+          React.useEffect(() => {
+            // Function to check and update React states based on global Firebase flags
+            const updateFirebaseStates = () => {
+                if (window.globalFirebaseError) {
+                    setFirestoreError(window.globalFirebaseError);
+                    setIsFirebaseInitializing(false);
+                    setFirestoreLoading(false);
+                    return;
+                }
+
+                if (window.firebaseInitialized) {
+                    setFirebaseReady(true);
+                    setIsFirebaseInitializing(false);
+                    // Only set up onAuthStateChanged if window.auth is defined and no user is currently logged in
+                    if (window.auth && !window.auth.currentUser) {
+                        const unsubscribeAuth = window.auth.onAuthStateChanged(user => {
+                            if (user) {
+                                setUserId(user.uid);
+                                console.log("Firebase Auth UID:", user.uid);
+                            } else {
+                                setUserId(null);
+                                console.log("No Firebase user logged in (anonymous or custom token needed).");
+                            }
+                        });
+                        return unsubscribeAuth; // Return cleanup function
+                    }
+                } else if (window.isFirebaseInitializingGlobally) {
+                    setIsFirebaseInitializing(true);
+                    // Re-check after a short delay if still initializing globally
+                    const timeoutId = setTimeout(updateFirebaseStates, 100);
+                    return () => clearTimeout(timeoutId); // Return cleanup function
+                } else {
+                    // If not initialized, no error, and not globally initializing, it means init failed silently.
+                    console.warn("Firebase not initialized and not globally initializing. Assuming silent failure.");
+                    setIsFirebaseInitializing(false);
+                    setFirestoreLoading(false);
+                    setFirestoreError("No se pudo conectar a Firebase. Por favor, revisa tu configuración y la consola del navegador.");
+                }
+                return undefined; // No cleanup needed if no listener was set
+            };
+
+            const unsubscribe = updateFirebaseStates(); // Initial check
+
+            return () => {
+                if (unsubscribe) unsubscribe(); // Cleanup auth listener if it was set
+            };
+          }, []); // Empty dependency array means it runs once on mount
+
+
+          // Effect for fetching users from Firestore in real-time and checking for admin
+          React.useEffect(() => {
+            if (firebaseReady && userId && window.db && window.appId) { // Ensure firebase is ready and user is authenticated
+                setFirestoreLoading(true);
+                setFirestoreError(null);
+                try {
+                    // Path for public users data: /artifacts/{appId}/public/data/users
+                    const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+                    const q = window.query(usersCollectionRef); // No orderBy to avoid index issues
+
+                    const unsubscribeFirestore = window.onSnapshot(q, (snapshot) => {
+                        const users = snapshot.docs.map(doc => ({
+                            id: doc.id, // Document ID from Firestore
+                            ...doc.data()
+                        }));
+                        setRegisteredUsers(users);
+                        // Check if an 'admin' user exists in the fetched list
+                        const adminFound = users.some(u => u.username === 'admin' && u.type === 'admin');
+                        setAdminUserExists(adminFound);
+                        setFirestoreLoading(false);
+                        console.log("Usuarios cargados de Firestore:", users);
+                        console.log("Admin user exists:", adminFound);
+                    }, (err) => { // This error handler is for onSnapshot listener itself
+                        console.error("Error fetching users from Firestore (onSnapshot callback):", err);
+                        setFirestoreError(`Error al cargar usuarios de la base de datos: ${err.message}`);
+                        setFirestoreLoading(false);
+                    });
+
+                    return () => unsubscribeFirestore(); // Cleanup subscription
+                } catch (e) { // This error handler is for the setup of the listener
+                    console.error("Error setting up Firestore listener (useEffect catch):", e);
+                    setFirestoreError(`Error al configurar la escucha de Firestore: ${e.message}`);
+                    setFirestoreLoading(false);
+                }
+            } else if (!firebaseReady || !userId) {
+                // If Firebase is not ready or user is not logged in, clear users and set loading to false
+                setRegisteredUsers([]);
+                setFirestoreLoading(false);
+                setAdminUserExists(false); // Assume admin doesn't exist if not ready
+            }
+          }, [firebaseReady, userId, window.db, window.appId]); // Re-run when firebaseReady, userId, or global Firebase instances are ready
+
 
           // Function to clean and parse numerical values from CSV
           const cleanAndParseFloat = (value) => {
@@ -366,30 +580,152 @@
             }
           };
 
-          // Handle login attempt using mockUsers
-          const handleLogin = (e) => {
+          // Handle login attempt (NOW uses Firestore for authentication)
+          const handleLogin = async (e) => {
             e.preventDefault();
-            setError(null); // Clear previous errors
+            setError(null);
+            setFirestoreLoading(true); // Indicate login process is loading
 
-            const foundUser = mockUsers.find(u => u.username === username && u.password === password);
+            if (!firebaseReady || !window.db) {
+                setError('Firebase no está listo. Por favor, espera un momento e intenta de nuevo.');
+                setFirestoreLoading(false);
+                return;
+            }
 
-            if (foundUser) {
-              setUserType(foundUser.type);
-              setError(null);
-              // Automatically load CSV after successful login
-              loadCsvFromUrl(DEFAULT_CSV_URL);
-            } else {
-              setError("Nombre de usuario o contraseña incorrectos.");
+            try {
+                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+                // Query Firestore for a user with matching username and password
+                const q = window.query(
+                    usersCollectionRef,
+                    window.where('username', '==', username),
+                    window.where('password', '==', password) // WARNING: Storing passwords in plaintext is INSECURE for production. Use Firebase Auth for real apps.
+                );
+                const querySnapshot = await window.getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    const foundUserDoc = querySnapshot.docs[0].data();
+                    setUserType(foundUserDoc.type);
+                    setError(null);
+                    console.log(`Usuario ${foundUserDoc.username} (${foundUserDoc.type}) ha iniciado sesión desde Firestore.`);
+                    await loadCsvFromUrl(DEFAULT_CSV_URL); // Load CSV after successful login
+                } else {
+                    // Removed fallback to local mock users as per user request.
+                    setError("Nombre de usuario o contraseña incorrectos.");
+                }
+            } catch (e) {
+                console.error("Error during login from Firestore:", e);
+                setError(`Error al iniciar sesión: ${e.message}. Por favor, revisa la consola.`);
+            } finally {
+                setFirestoreLoading(false); // Reset loading state after login attempt
             }
           };
 
+          // Function to create the initial admin user in Firestore
+          const createInitialAdminUser = async () => {
+            if (!firebaseReady || !window.db || !userId) {
+                setAdminCreationMessage('Firebase no está listo o no hay un usuario autenticado para crear el admin.');
+                return;
+            }
+            setCreatingAdminUser(true);
+            setAdminCreationMessage(null);
+            setError(null); // Clear general error
+
+            try {
+                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+                // Check if admin already exists to prevent duplicates
+                const q = window.query(usersCollectionRef, window.where('username', '==', 'admin'), window.where('type', '==', 'admin'));
+                const querySnapshot = await window.getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    setAdminCreationMessage('El usuario admin ya existe en Firestore.');
+                    setAdminUserExists(true); // Update state to reflect existence
+                    return;
+                }
+
+                // Add the admin user
+                await window.addDoc(usersCollectionRef, {
+                    username: 'admin',
+                    password: 'password123', // Default password for initial setup
+                    type: 'admin',
+                    createdAt: new Date(),
+                    createdBy: userId // Record who created this user (anonymous user ID)
+                });
+                setAdminUserExists(true);
+                setAdminCreationMessage('Usuario admin creado con éxito en Firestore. Ahora puedes iniciar sesión.');
+                // Optionally set username/password fields for convenience
+                setUsername('admin');
+                setPassword('password123');
+            } catch (e) {
+                console.error("Error creating initial admin user:", e);
+                setAdminCreationMessage(`Error al crear el usuario admin: ${e.message}. Revisa las reglas de seguridad de Firestore.`);
+            } finally {
+                setCreatingAdminUser(false);
+            }
+          };
+
+
           // Handle logout
           const handleLogout = () => {
-            setUserType(null); // Clear user type on logout
-            setUsername(''); // Clear username and password fields
+            setUserType(null);
+            setUsername('');
             setPassword('');
             setError(null);
-            setPriceData(initialMockPriceData); // Reset price data to initial mock data on logout
+            setPriceData(initialMockPriceData); // Reset data on logout
+            setNewUsername('');
+            setNewUserEmail('');
+            setNewUserPassword('');
+            setNewUserType('sub distribuidor');
+            // Reset filter states on logout
+            setSelectedBrand('');
+            setSearchTerm('');
+            setSelectedItems(new Set()); // Clear selected items on logout
+            console.log("Sesión cerrada.");
+          };
+
+          const handleCreateUser = async () => {
+            if (!newUsername || !newUserEmail || !newUserPassword) {
+              setError('Todos los campos (usuario, email, contraseña) son obligatorios.');
+              return;
+            }
+            if (registeredUsers.some(u => u.username === newUsername)) {
+              setError('Este nombre de usuario ya existe. Por favor, elige otro.');
+              return;
+            }
+
+            if (!window.db || !userId) {
+                setFirestoreError('La base de datos no está lista o no hay un usuario autenticado. Por favor, intenta de nuevo en unos segundos.');
+                return;
+            }
+
+            setFirestoreLoading(true);
+            setFirestoreError(null);
+            setSuccessMessage(null); // Clear previous success messages
+
+            try {
+                // Add user to Firestore
+                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+                await window.addDoc(usersCollectionRef, {
+                    username: newUsername,
+                    email: newUserEmail,
+                    password: newUserPassword, // WARNING: Storing passwords in plaintext is INSECURE for production. Use Firebase Auth for real apps.
+                    type: newUserType,
+                    createdAt: new Date(),
+                    createdBy: userId // Record who created this user
+                });
+
+                setNewUsername('');
+                setNewUserEmail('');
+                setNewUserPassword('');
+                setNewUserType('sub distribuidor');
+                setError(null);
+                setSuccessMessage("Usuario creado en la base de datos con éxito.");
+                setTimeout(() => setSuccessMessage(null), 5000); // Clear after 5 seconds
+            } catch (e) {
+                console.error("Error creating user in Firestore:", e);
+                setFirestoreError(`Error al crear el usuario en la base de datos: ${e.message}`);
+            } finally {
+                setFirestoreLoading(false);
+            }
           };
 
           // Handle checkbox change for item selection
@@ -408,9 +744,7 @@
           // Handle printing selected items
           const handlePrintSelected = () => {
             if (selectedItems.size === 0) {
-              // Replaced alert with a custom message box or error display
-              setError('Por favor, selecciona al menos un modelo para imprimir.');
-              setTimeout(() => setError(null), 3000); // Clear message after 3 seconds
+              alert('Por favor, selecciona al menos un modelo para imprimir.');
               return;
             }
 
@@ -504,60 +838,100 @@
                   <h2 className="text-3xl font-bold text-center text-gray-800 mb-4">LISTA DE PRECIOS DS</h2>
                   <p className="text-center text-gray-600 text-md mb-8">Bienvenido, favor de ingresar su usuario y contraseña para ver la lista de precios</p>
 
-                  {error && ( // General login error
+                  {isFirebaseInitializing && !firestoreError && ( // Show this while Firebase is truly initializing
+                        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="block sm:inline">Conectando a Firebase...</span>
+                        </div>
+                    )}
+
+                    {firestoreError && ( // Show Firebase init error
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
+                            <strong className="font-bold">Error de conexión:</strong>
+                            <span className="block sm:inline"> {firestoreError}</span>
+                        </div>
+                    )}
+
+                  {error && (
                       <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
                           <strong className="font-bold">Error:</strong>
                           <span className="block sm:inline"> {error}</span>
                       </div>
                   )}
 
-                  <form onSubmit={handleLogin}>
-                    <div className="mb-6">
-                        <label htmlFor="username" className="block text-gray-700 text-sm font-semibold mb-2">
-                        Usuario
-                        </label>
-                        <input
-                        type="text"
-                        id="username"
-                        className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                        aria-label="Usuario"
-                        />
-                    </div>
-                    <div className="mb-6">
-                        <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
-                        Contraseña
-                        </label>
-                        <input
-                        type="password"
-                        id="password"
-                        className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        aria-label="Contraseña"
-                        />
-                    </div>
-                    <button
-                        type="submit"
-                        className="btn-modern w-full"
-                    >
-                        Entrar
-                    </button>
-                  </form>
-                  <p className="text-center text-gray-600 text-sm mt-6">
-                    <span className="font-semibold">Usuarios de prueba:</span>
-                    <br />
-                    admin / password123 (Administrador)
-                    <br />
-                    direccion / password123 (Dirección)
-                    <br />
-                    distribuidor / password123 (Distribuidor)
-                    <br />
-                    subdistribuidor / password123 (Sub Distribuidor)
-                  </p>
+                  {!isFirebaseInitializing && !firestoreError && ( // Only show form if Firebase is initialized and no critical error
+                    <>
+                        <form onSubmit={handleLogin}>
+                        <div className="mb-6">
+                            <label htmlFor="username" className="block text-gray-700 text-sm font-semibold mb-2">
+                            Usuario
+                            </label>
+                            <input
+                            type="text"
+                            id="username"
+                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            required
+                            aria-label="Usuario"
+                            />
+                        </div>
+                        <div className="mb-6">
+                            <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
+                            Contraseña
+                            </label>
+                            <input
+                            type="password"
+                            id="password"
+                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            aria-label="Contraseña"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            className="btn-modern w-full"
+                            disabled={firestoreLoading} // Disable button during login attempt
+                        >
+                            {firestoreLoading ? 'Iniciando sesión...' : 'Entrar'}
+                        </button>
+                        </form>
+
+                        {!adminUserExists && !creatingAdminUser && firebaseReady && userId && (
+                            <div className="mt-6 text-center">
+                                {adminCreationMessage && (
+                                    <div className={`px-4 py-2 rounded-md mb-3 text-sm ${adminCreationMessage.includes('éxito') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} border ${adminCreationMessage.includes('éxito') ? 'border-green-400' : 'border-red-400'}`}>
+                                        {adminCreationMessage}
+                                    </div>
+                                )}
+                                <button
+                                    onClick={createInitialAdminUser}
+                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+                                    disabled={creatingAdminUser || firestoreLoading}
+                                >
+                                    {creatingAdminUser ? 'Creando Admin...' : 'Crear Usuario Admin Inicial (Solo una vez)'}
+                                </button>
+                                <p className="text-gray-500 text-xs mt-2">
+                                    Si no puedes iniciar sesión, haz clic aquí para crear el usuario 'admin' con contraseña 'password123'.
+                                </p>
+                            </div>
+                        )}
+                        {creatingAdminUser && (
+                            <div className="mt-6 text-center text-blue-700 flex items-center justify-center gap-2">
+                                <svg className="animate-spin h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Creando usuario admin...</span>
+                            </div>
+                        )}
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -584,24 +958,175 @@
                 </header>
 
                 {userType === 'admin' && (
-                  <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <label htmlFor="csv-upload" className="block text-gray-700 text-sm font-semibold">
-                      Cargar archivo CSV:
-                    </label>
-                    <input
-                      type="file"
-                      id="csv-upload"
-                      accept=".csv"
-                      onChange={handleFileUpload}
-                      className="block w-full sm:w-auto text-sm text-gray-500
-                        file:mr-4 file:py-2 file:px-4
-                        file:rounded-lg file:border-0
-                        file:text-sm file:font-semibold
-                        file:bg-blue-50 file:text-blue-700
-                        hover:file:bg-blue-100 transition duration-200"
-                    />
-                    {error && <p className="text-red-500 text-sm text-center sm:text-right mt-2 sm:mt-0">{error}</p>}
+                  <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200">
+                    <h3 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-3">Gestión de Usuarios (Firestore)</h3>
+                    {!firebaseReady && (
+                        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="block sm:inline">Inicializando Firebase...</span>
+                        </div>
+                    )}
+                    {firebaseReady && firestoreLoading && (
+                        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="block sm:inline">Cargando usuarios de la base de datos...</span>
+                        </div>
+                    )}
+                    {firestoreError && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
+                            <strong className="font-bold">Error de la base de datos:</strong>
+                            <span className="block sm:inline"> {firestoreError}</span>
+                        </div>
+                    )}
+                    {successMessage && (
+                        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md mb-4 shadow-sm" role="alert">
+                            <span className="block sm:inline"> {successMessage}</span>
+                        </div>
+                    )}
+                    <p className="text-sm text-gray-600 mb-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <strong className="text-blue-700">Nota:</strong> Los usuarios creados aquí se guardarán permanentemente en Firestore.
+                        <br/>
+                        Tu ID de sesión (para referencia de la base de datos): <code className="font-mono text-xs bg-gray-200 p-1 rounded">{userId || 'Cargando...'}</code>
+                    </p>
+                    {firebaseReady && (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                            <div>
+                                <label htmlFor="new-username" className="block text-gray-700 text-sm font-semibold mb-2">
+                                Nombre de Usuario
+                                </label>
+                                <input
+                                type="text"
+                                id="new-username"
+                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
+                                value={newUsername}
+                                onChange={(e) => setNewUsername(e.target.value)}
+                                placeholder="Ej: juan.perez"
+                                aria-label="Nombre de Usuario"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="new-user-email" className="block text-gray-700 text-sm font-semibold mb-2">
+                                Email (solo para visualización)
+                                </label>
+                                <input
+                                type="email"
+                                id="new-user-email"
+                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
+                                value={newUserEmail}
+                                onChange={(e) => setNewUserEmail(e.target.value)}
+                                placeholder="Ej: juan.perez@dominio.com"
+                                aria-label="Email del nuevo usuario"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="new-user-password" className="block text-gray-700 text-sm font-semibold mb-2">
+                                Contraseña
+                                </label>
+                                <input
+                                type="password"
+                                id="new-user-password"
+                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
+                                value={newUserPassword}
+                                onChange={(e) => setNewUserPassword(e.target.value)}
+                                placeholder="Contraseña segura"
+                                aria-label="Contraseña del nuevo usuario"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="new-user-type" className="block text-gray-700 text-sm font-semibold mb-2">
+                                Tipo de Usuario
+                                </label>
+                                <select
+                                id="new-user-type"
+                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
+                                value={newUserType}
+                                onChange={(e) => setNewUserType(e.target.value)}
+                                aria-label="Tipo de usuario para el nuevo usuario"
+                                >
+                                <option value="sub distribuidor">Sub Distribuidor</option>
+                                <option value="distribuidor">Distribuidor</option>
+                                <option value="direccion">Dirección</option>
+                                <option value="admin">Administrador</option>
+                                </select>
+                            </div>
+                            <div className="flex items-end col-span-1 md:col-span-2 lg:col-span-1">
+                                <button
+                                onClick={handleCreateUser}
+                                className="btn-modern w-full"
+                                disabled={firestoreLoading}
+                                >
+                                {firestoreLoading ? 'Creando...' : 'Crear Usuario'}
+                                </button>
+                            </div>
+                            </div>
+                            {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
+
+                            <h4 className="text-xl font-bold text-gray-700 mb-4 border-b pb-2">Usuarios Registrados (Desde Firestore)</h4>
+                            <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-custom-light">
+                            {firestoreLoading && registeredUsers.length === 0 ? (
+                                <p className="text-center text-gray-600 py-4">Cargando usuarios de la base de datos...</p>
+                            ) : (
+                                <table className="min-w-full bg-white excel-table">
+                                <thead>
+                                    <tr>
+                                    <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                                        Usuario
+                                    </th>
+                                    <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                                        Email
+                                    </th>
+                                    <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                                        Tipo
+                                    </th>
+                                    <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                                        ID (Firestore)
+                                    </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {registeredUsers.map((user, index) => (
+                                    <tr key={user.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
+                                        <td className="py-3 px-4 text-gray-800 border-b border-gray-100 table-cell-responsive">{user.username}</td>
+                                        <td className="py-3 px-4 text-gray-700 border-b border-gray-100 table-cell-responsive">{user.email || 'N/A'}</td>
+                                        <td className="py-3 px-4 text-gray-700 border-b border-gray-100 capitalize table-cell-responsive">{user.type}</td>
+                                        <td className="py-3 px-4 text-gray-500 text-xs border-b border-gray-100 table-cell-responsive">{user.id}</td>
+                                    </tr>
+                                    ))}
+                                    {registeredUsers.length === 0 && (
+                                    <tr>
+                                        <td colSpan="4" className="py-4 text-center text-gray-500">No hay usuarios registrados en la base de datos.</td>
+                                    </tr>
+                                    )}
+                                </tbody>
+                                </table>
+                            )}
+                            </div>
+                        </>
+                    )}
                   </div>
+                )}
+
+                {csvLoading && (
+                    <div className="p-4 sm:p-6 lg:p-8 bg-blue-50 border-b border-blue-200 flex items-center justify-center gap-4 rounded-b-xl">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p className="text-blue-700 font-semibold">Cargando datos de precios...</p>
+                    </div>
+                )}
+                {error && (
+                    <div className="p-4 sm:p-6 lg:p-8 bg-red-100 border-b border-red-400 text-red-700 flex items-center justify-center gap-4 rounded-b-xl">
+                        <strong className="font-bold">Error al cargar CSV:</strong>
+                        <span className="block sm:inline"> {error}</span>
+                    </div>
                 )}
 
                 {/* Search/Filter Module */}
