@@ -9,30 +9,13 @@
     <!-- Google Fonts - Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        /* 🔵 Estilos modernos personalizados */
-        :root {
-            --color-bg-card: #f9fbff;
-            --color-border-card: #dbeafe;
-            --color-accent: #3b82f6; /* Tailwind blue-500 */
-            --color-accent-hover: #2563eb; /* Tailwind blue-600 */
-            --color-text-primary: #1e293b; /* Tailwind slate-800 */
-            --color-shadow: rgba(59, 130, 246, 0.15); /* Shadow based on accent color */
-        }
-
         body {
             font-family: 'Inter', sans-serif;
-            color: var(--color-text-primary);
-            background-color: #f3f4f6; /* Light gray background for the whole page */
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            background-color: #f3f4f6; /* Light gray background for the whole page */
         }
-
-        h1, h2, h3 {
-            font-weight: 700; /* Bold */
-            color: var(--color-accent); /* Accent color for headings */
-        }
-
         /* Custom shadows for better visual appeal */
         .shadow-custom-light {
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -46,72 +29,6 @@
         .text-shadow-lg {
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
         }
-
-        /* Card Modern Style */
-        .card-modern {
-            background-color: var(--color-bg-card);
-            border: 1px solid var(--color-border-card);
-            border-radius: 1rem; /* Rounded corners */
-            box-shadow: 0 8px 16px var(--color-shadow); /* Soft shadow */
-            padding: 1.5rem;
-            transition: transform 0.3s ease, box-shadow 0.3s ease; /* Smooth hover effects */
-        }
-        .card-modern:hover {
-            transform: translateY(-4px); /* Slight lift on hover */
-            box-shadow: 0 12px 24px rgba(59, 130, 246, 0.25); /* Enhanced shadow on hover */
-        }
-
-        /* Button Modern Style */
-        .btn-modern {
-            background-color: var(--color-accent);
-            color: white;
-            font-weight: 600;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            transition: background-color 0.2s ease, transform 0.2s ease;
-        }
-        .btn-modern:hover {
-            background-color: var(--color-accent-hover);
-            transform: scale(1.02); /* Slight scale for button hover */
-        }
-
-        /* Excel-like Table Appearance */
-        .excel-table {
-            border-collapse: collapse; /* Ensures single borders */
-            width: 100%;
-        }
-        .excel-table th {
-            white-space: normal; /* Allow text wrapping in headers */
-            vertical-align: middle; /* Center text vertically in headers */
-            text-align: center; /* Center align headers by default */
-            word-break: break-word; /* Ensure long words break */
-            min-width: 80px; /* Minimum width for columns to encourage wrapping */
-            box-sizing: border-box; /* Include padding and border in the element's total width and height */
-        }
-        .excel-table th, .excel-table td {
-            border: 1px solid #cce0f0; /* Slightly darker light blue border for all cells */
-            padding: 0.75rem 0.8rem; /* Consistent padding, slightly less horizontal for more columns */
-        }
-        .excel-table thead th {
-            background-color: #eaf3fa; /* Lighter blue background for headers */
-            font-weight: 600; /* Semi-bold headers */
-            color: #2a6592; /* Darker blue text for headers */
-            text-transform: uppercase;
-            font-size: 0.8rem; /* Slightly smaller font for headers to fit more text */
-        }
-        .excel-table tbody tr:nth-child(even) {
-            background-color: #f8fafc; /* Lighter alternating row color */
-        }
-        .excel-table tbody tr:hover {
-            background-color: #e0f0ff; /* Subtle hover effect with light blue */
-        }
-        /* Specific alignment for price columns in tbody */
-        .excel-table tbody td.text-right {
-            font-family: 'Inter', sans-serif; /* Ensure consistent font */
-            font-weight: 500; /* Slightly bolder for numbers */
-            color: #333; /* Darker color for numbers */
-        }
-
         /* Responsive adjustments for table cells */
         @media (max-width: 640px) {
             .table-cell-responsive {
@@ -119,51 +36,28 @@
                 padding: 0.5rem 0.75rem; /* Adjust padding */
             }
         }
-
-        /* Print specific styles */
-        @media print {
-            body * {
-                visibility: hidden; /* Hide everything by default */
-            }
-            #print-area, #print-area * {
-                visibility: visible; /* Show only the print area */
-            }
-            #print-area {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                padding: 20px;
-                box-sizing: border-box;
-            }
-            /* Adjust table styles for print */
-            #print-area .excel-table {
-                width: 100%;
-                border-collapse: collapse;
-            }
-            #print-area .excel-table th,
-            #print-area .excel-table td {
-                border: 1px solid #ccc;
-                padding: 8px;
-                font-size: 10px; /* Smaller font for print */
-                text-align: left;
-                white-space: normal; /* Allow text wrapping */
-            }
-            #print-area .excel-table th {
-                background-color: #f2f2f2;
-                font-weight: bold;
-                color: #333;
-            }
-            #print-area .excel-table tbody tr:nth-child(even) {
-                background-color: #f9f9f9;
-            }
-            #print-area .excel-table tbody td.text-right {
-                text-align: right;
-            }
-            /* Hide print button in print view */
-            .no-print {
-                display: none;
-            }
+        /* Specific styles for Excel-like table appearance */
+        .excel-table {
+            border-collapse: collapse; /* Ensures single borders */
+            width: 100%;
+        }
+        .excel-table th, .excel-table td {
+            border: 1px solid #e2e8f0; /* Light gray border for all cells */
+            padding: 0.75rem 1rem; /* Consistent padding */
+            text-align: left;
+        }
+        .excel-table thead th {
+            background-color: #e2e8f0; /* Light gray background for headers */
+            font-weight: 600; /* Semi-bold headers */
+            color: #4a5568; /* Darker text for headers */
+            text-transform: uppercase;
+            font-size: 0.875rem; /* Slightly larger font for headers */
+        }
+        .excel-table tbody tr:nth-child(even) {
+            background-color: #f8fafc; /* Lighter alternating row color */
+        }
+        .excel-table tbody tr:hover {
+            background-color: #f0f4f8; /* Subtle hover effect */
         }
     </style>
 
@@ -290,19 +184,28 @@
           { id: 5, 'Tipo Equipo': 'Auriculares', Marca: 'Razer', Equipo: 'Kraken X', 'Codigo SAP': 'RZKX-005', Color: 'Verde', 'Precio Publico (IVA incluido)': 160, 'PrecioFacturacion distribuidor (con sim e IVA Incluido)': 140, 'Precio subdistribuidor (IVA Incluido)': 120, 'Inicio de Vigencia': '2024-01-01', 'Fin de Vigencia': '2024-12-31', 'Utilidad DS': 0.12 },
         ];
 
-        // Define column headers and their display names, including alignment
+        // Hardcoded user data for authentication (local management)
+        // These are for fallback/initial login validation. Actual users for admin panel are from Firestore.
+        const localMockLoginUsers = [
+          { id: 'mock-admin', username: 'admin', password: 'password123', type: 'admin', email: 'admin@example.com' },
+          { id: 'mock-direccion', username: 'direccion', password: 'password123', type: 'direccion', email: 'direccion@example.com' },
+          { id: 'mock-distribuidor', username: 'distribuidor', password: 'password123', type: 'distribuidor', email: 'distribuidor@example.com' },
+          { id: 'mock-subdistribuidor', password: 'password123', type: 'sub distribuidor', email: 'subdistribuidor@example.com' },
+        ];
+
+        // Define column headers and their display names
         const allColumns = [
-            { key: 'Tipo Equipo', label: 'Tipo Equipo', align: 'left' },
-            { key: 'Marca', label: 'Marca', align: 'left' },
-            { key: 'Equipo', label: 'Equipo', align: 'left' },
-            { key: 'Codigo SAP', label: 'Código SAP', align: 'left' },
-            { key: 'Color', label: 'Color', align: 'left' },
-            { key: 'Precio Publico (IVA incluido)', label: 'Precio Público (IVA incluido)', align: 'right' },
-            { key: 'PrecioFacturacion distribuidor (con sim e IVA Incluido)', label: 'Precio Facturación Distribuidor (con sim e IVA Incluido)', align: 'right' },
-            { key: 'Precio subdistribuidor (IVA Incluido)', label: 'Precio Subdistribuidor (IVA Incluido)', align: 'right' },
-            { key: 'Inicio de Vigencia', label: 'Inicio de Vigencia', align: 'left' },
-            { key: 'Fin de Vigencia', label: 'Fin de Vigencia', align: 'left' },
-            { key: 'Utilidad DS', label: 'Utilidad DS', align: 'right' }
+            { key: 'Tipo Equipo', label: 'Tipo Equipo' },
+            { key: 'Marca', label: 'Marca' },
+            { key: 'Equipo', label: 'Equipo' },
+            { key: 'Codigo SAP', label: 'Código SAP' },
+            { key: 'Color', label: 'Color' },
+            { key: 'Precio Publico (IVA incluido)', label: 'Precio Público (IVA incluido)' },
+            { key: 'PrecioFacturacion distribuidor (con sim e IVA Incluido)', label: 'Precio Facturación Distribuidor (con sim e IVA Incluido)' },
+            { key: 'Precio subdistribuidor (IVA Incluido)', label: 'Precio Subdistribuidor (IVA Incluido)' },
+            { key: 'Inicio de Vigencia', label: 'Inicio de Vigencia' },
+            { key: 'Fin de Vigencia', label: 'Fin de Vigencia' },
+            { key: 'Utilidad DS', label: 'Utilidad DS' }
         ];
 
         // Define column visibility rules based on user type
@@ -373,12 +276,6 @@
           const [isFirebaseInitializing, setIsFirebaseInitializing] = React.useState(window.isFirebaseInitializingGlobally);
 
 
-          // New states for initial admin user creation
-          const [adminUserExists, setAdminUserExists] = React.useState(false);
-          const [creatingAdminUser, setCreatingAdminUser] = React.useState(false);
-          const [adminCreationMessage, setAdminCreationMessage] = React.useState(null);
-
-
           // New states for new user creation form
           const [newUsername, setNewUsername] = React.useState('');
           const [newUserEmail, setNewUserEmail] = React.useState('');
@@ -389,9 +286,6 @@
           // New states for search/filter
           const [selectedBrand, setSelectedBrand] = React.useState(''); // '' means all brands
           const [searchTerm, setSearchTerm] = React.useState('');
-
-          // New state for selected items for printing
-          const [selectedItems, setSelectedItems] = React.useState(new Set()); // Stores IDs of selected items
 
           // Effect for Firebase readiness and global error handling
           React.useEffect(() => {
@@ -407,8 +301,9 @@
                 if (window.firebaseInitialized) {
                     setFirebaseReady(true);
                     setIsFirebaseInitializing(false);
-                    // Only set up onAuthStateChanged if window.auth is defined and no user is currently logged in
-                    if (window.auth && !window.auth.currentUser) {
+                    // Set up auth state listener if not already set
+                    if (!window.auth._is  // Simple check if auth listener might be active
+                        || !window.auth.currentUser) { // Or if current user is not yet set
                         const unsubscribeAuth = window.auth.onAuthStateChanged(user => {
                             if (user) {
                                 setUserId(user.uid);
@@ -418,13 +313,13 @@
                                 console.log("No Firebase user logged in (anonymous or custom token needed).");
                             }
                         });
-                        return unsubscribeAuth; // Return cleanup function
+                        return unsubscribeAuth; // Return cleanup function for auth listener
                     }
                 } else if (window.isFirebaseInitializingGlobally) {
                     setIsFirebaseInitializing(true);
                     // Re-check after a short delay if still initializing globally
                     const timeoutId = setTimeout(updateFirebaseStates, 100);
-                    return () => clearTimeout(timeoutId); // Return cleanup function
+                    return () => clearTimeout(timeoutId);
                 } else {
                     // If not initialized, no error, and not globally initializing, it means init failed silently.
                     console.warn("Firebase not initialized and not globally initializing. Assuming silent failure.");
@@ -432,7 +327,7 @@
                     setFirestoreLoading(false);
                     setFirestoreError("No se pudo conectar a Firebase. Por favor, revisa tu configuración y la consola del navegador.");
                 }
-                return undefined; // No cleanup needed if no listener was set
+                return null; // No cleanup needed if no listener was set
             };
 
             const unsubscribe = updateFirebaseStates(); // Initial check
@@ -443,7 +338,7 @@
           }, []); // Empty dependency array means it runs once on mount
 
 
-          // Effect for fetching users from Firestore in real-time and checking for admin
+          // Effect for fetching users from Firestore in real-time
           React.useEffect(() => {
             if (firebaseReady && userId && window.db && window.appId) { // Ensure firebase is ready and user is authenticated
                 setFirestoreLoading(true);
@@ -459,12 +354,8 @@
                             ...doc.data()
                         }));
                         setRegisteredUsers(users);
-                        // Check if an 'admin' user exists in the fetched list
-                        const adminFound = users.some(u => u.username === 'admin' && u.type === 'admin');
-                        setAdminUserExists(adminFound);
                         setFirestoreLoading(false);
                         console.log("Usuarios cargados de Firestore:", users);
-                        console.log("Admin user exists:", adminFound);
                     }, (err) => { // This error handler is for onSnapshot listener itself
                         console.error("Error fetching users from Firestore (onSnapshot callback):", err);
                         setFirestoreError(`Error al cargar usuarios de la base de datos: ${err.message}`);
@@ -481,7 +372,6 @@
                 // If Firebase is not ready or user is not logged in, clear users and set loading to false
                 setRegisteredUsers([]);
                 setFirestoreLoading(false);
-                setAdminUserExists(false); // Assume admin doesn't exist if not ready
             }
           }, [firebaseReady, userId, window.db, window.appId]); // Re-run when firebaseReady, userId, or global Firebase instances are ready
 
@@ -537,7 +427,7 @@
 
                   if (missingHeaders.length > 0) {
                     setError(`Error en el CSV: Faltan las siguientes columnas: ${missingHeaders.join(', ')}. Asegúrate de que los nombres de las columnas coincidan exactamente.`);
-                    setPriceData(initialMockPriceData); // Revert to initial data if CSV is malformed
+                    setPriceData(initialMockPriceData);
                     return;
                   }
 
@@ -609,8 +499,16 @@
                     console.log(`Usuario ${foundUserDoc.username} (${foundUserDoc.type}) ha iniciado sesión desde Firestore.`);
                     await loadCsvFromUrl(DEFAULT_CSV_URL); // Load CSV after successful login
                 } else {
-                    // Removed fallback to local mock users as per user request.
-                    setError("Nombre de usuario o contraseña incorrectos.");
+                    // Fallback to local mock users if not found in Firestore
+                    const foundLocalUser = localMockLoginUsers.find(u => u.username === username && u.password === password);
+                    if (foundLocalUser) {
+                        setUserType(foundLocalUser.type);
+                        setError(null);
+                        console.log(`Usuario ${foundLocalUser.username} (${foundLocalUser.type}) ha iniciado sesión desde usuarios locales.`);
+                        await loadCsvFromUrl(DEFAULT_CSV_URL);
+                    } else {
+                        setError("Nombre de usuario o contraseña incorrectos.");
+                    }
                 }
             } catch (e) {
                 console.error("Error during login from Firestore:", e);
@@ -619,50 +517,6 @@
                 setFirestoreLoading(false); // Reset loading state after login attempt
             }
           };
-
-          // Function to create the initial admin user in Firestore
-          const createInitialAdminUser = async () => {
-            if (!firebaseReady || !window.db || !userId) {
-                setAdminCreationMessage('Firebase no está listo o no hay un usuario autenticado para crear el admin.');
-                return;
-            }
-            setCreatingAdminUser(true);
-            setAdminCreationMessage(null);
-            setError(null); // Clear general error
-
-            try {
-                const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
-                // Check if admin already exists to prevent duplicates
-                const q = window.query(usersCollectionRef, window.where('username', '==', 'admin'), window.where('type', '==', 'admin'));
-                const querySnapshot = await window.getDocs(q);
-
-                if (!querySnapshot.empty) {
-                    setAdminCreationMessage('El usuario admin ya existe en Firestore.');
-                    setAdminUserExists(true); // Update state to reflect existence
-                    return;
-                }
-
-                // Add the admin user
-                await window.addDoc(usersCollectionRef, {
-                    username: 'admin',
-                    password: 'password123', // Default password for initial setup
-                    type: 'admin',
-                    createdAt: new Date(),
-                    createdBy: userId // Record who created this user (anonymous user ID)
-                });
-                setAdminUserExists(true);
-                setAdminCreationMessage('Usuario admin creado con éxito en Firestore. Ahora puedes iniciar sesión.');
-                // Optionally set username/password fields for convenience
-                setUsername('admin');
-                setPassword('password123');
-            } catch (e) {
-                console.error("Error creating initial admin user:", e);
-                setAdminCreationMessage(`Error al crear el usuario admin: ${e.message}. Revisa las reglas de seguridad de Firestore.`);
-            } finally {
-                setCreatingAdminUser(false);
-            }
-          };
-
 
           // Handle logout
           const handleLogout = () => {
@@ -678,7 +532,6 @@
             // Reset filter states on logout
             setSelectedBrand('');
             setSearchTerm('');
-            setSelectedItems(new Set()); // Clear selected items on logout
             console.log("Sesión cerrada.");
           };
 
@@ -728,81 +581,6 @@
             }
           };
 
-          // Handle checkbox change for item selection
-          const handleCheckboxChange = (itemId, isChecked) => {
-            setSelectedItems(prevSelectedItems => {
-              const newSet = new Set(prevSelectedItems);
-              if (isChecked) {
-                newSet.add(itemId);
-              } else {
-                newSet.delete(itemId);
-              }
-              return newSet;
-            });
-          };
-
-          // Handle printing selected items
-          const handlePrintSelected = () => {
-            if (selectedItems.size === 0) {
-              alert('Por favor, selecciona al menos un modelo para imprimir.');
-              return;
-            }
-
-            const itemsToPrint = priceData.filter(item => selectedItems.has(item.id));
-            const columnsForPrint = allColumns.filter(col => columnVisibility[userType] && columnVisibility[userType].includes(col.key));
-
-            let printContent = `
-                <div style="font-family: 'Inter', sans-serif; padding: 20px;">
-                    <h1 style="text-align: center; font-size: 24px; margin-bottom: 20px; color: #333;">Lista de Modelos Seleccionados</h1>
-                    <table class="excel-table" style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr>
-                                ${columnsForPrint.map(col => `
-                                    <th style="border: 1px solid #ccc; padding: 8px; text-align: ${col.align}; background-color: #f2f2f2; font-weight: bold; font-size: 10px;">
-                                        ${col.label}
-                                    </th>
-                                `).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${itemsToPrint.map((item, index) => `
-                                <tr style="background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
-                                    ${columnsForPrint.map(col => `
-                                        <td style="border: 1px solid #ccc; padding: 8px; font-size: 10px; text-align: ${col.align};">
-                                            ${col.key.startsWith('Precio') || col.key === 'Utilidad DS'
-                                                ? `$${item[col.key] ? parseFloat(item[col.key]).toFixed(2) : '0.00'}`
-                                                : item[col.key]}
-                                        </td>
-                                    `).join('')}
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write('<html><head><title>Imprimir Lista</title>');
-            printWindow.document.write(`
-                <style>
-                    body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
-                    .excel-table { border-collapse: collapse; width: 100%; }
-                    .excel-table th, .excel-table td { border: 1px solid #ccc; padding: 8px; font-size: 10px; text-align: left; white-space: normal; }
-                    .excel-table th { background-color: #f2f2f2; font-weight: bold; color: #333; text-align: center; }
-                    .excel-table tbody tr:nth-child(even) { background-color: #f9f9f9; }
-                    .excel-table td.text-right { text-align: right; }
-                    h1 { text-align: center; font-size: 24px; margin-bottom: 20px; color: #333; }
-                </style>
-            `);
-            printWindow.document.write('</head><body>');
-            printWindow.document.write(printContent);
-            printWindow.document.write('</body></html>');
-            printWindow.document.close();
-            printWindow.focus();
-            printWindow.print();
-          };
-
-
           // Memoized list of unique brands for the dropdown
           const uniqueBrands = React.useMemo(() => {
             const brands = new Set();
@@ -833,8 +611,8 @@
 
           if (!userType) {
             return (
-              <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-white p-4 font-inter">
-                <div className="card-modern w-full max-w-md">
+              <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 p-4 font-inter">
+                <div className="bg-white p-8 rounded-xl shadow-custom-strong w-full max-w-md border border-gray-200">
                   <h2 className="text-3xl font-bold text-center text-gray-800 mb-4">LISTA DE PRECIOS DS</h2>
                   <p className="text-center text-gray-600 text-md mb-8">Bienvenido, favor de ingresar su usuario y contraseña para ver la lista de precios</p>
 
@@ -863,75 +641,55 @@
                   )}
 
                   {!isFirebaseInitializing && !firestoreError && ( // Only show form if Firebase is initialized and no critical error
-                    <>
-                        <form onSubmit={handleLogin}>
-                        <div className="mb-6">
-                            <label htmlFor="username" className="block text-gray-700 text-sm font-semibold mb-2">
-                            Usuario
-                            </label>
-                            <input
-                            type="text"
-                            id="username"
-                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                            aria-label="Usuario"
-                            />
-                        </div>
-                        <div className="mb-6">
-                            <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
-                            Contraseña
-                            </label>
-                            <input
-                            type="password"
-                            id="password"
-                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            aria-label="Contraseña"
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            className="btn-modern w-full"
-                            disabled={firestoreLoading} // Disable button during login attempt
-                        >
-                            {firestoreLoading ? 'Iniciando sesión...' : 'Entrar'}
-                        </button>
-                        </form>
-
-                        {!adminUserExists && !creatingAdminUser && firebaseReady && userId && (
-                            <div className="mt-6 text-center">
-                                {adminCreationMessage && (
-                                    <div className={`px-4 py-2 rounded-md mb-3 text-sm ${adminCreationMessage.includes('éxito') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} border ${adminCreationMessage.includes('éxito') ? 'border-green-400' : 'border-red-400'}`}>
-                                        {adminCreationMessage}
-                                    </div>
-                                )}
-                                <button
-                                    onClick={createInitialAdminUser}
-                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
-                                    disabled={creatingAdminUser || firestoreLoading}
-                                >
-                                    {creatingAdminUser ? 'Creando Admin...' : 'Crear Usuario Admin Inicial (Solo una vez)'}
-                                </button>
-                                <p className="text-gray-500 text-xs mt-2">
-                                    Si no puedes iniciar sesión, haz clic aquí para crear el usuario 'admin' con contraseña 'password123'.
-                                </p>
-                            </div>
-                        )}
-                        {creatingAdminUser && (
-                            <div className="mt-6 text-center text-blue-700 flex items-center justify-center gap-2">
-                                <svg className="animate-spin h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span>Creando usuario admin...</span>
-                            </div>
-                        )}
-                    </>
+                    <form onSubmit={handleLogin}>
+                      <div className="mb-6">
+                        <label htmlFor="username" className="block text-gray-700 text-sm font-semibold mb-2">
+                          Usuario
+                        </label>
+                        <input
+                          type="text"
+                          id="username"
+                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          required
+                          aria-label="Usuario"
+                        />
+                      </div>
+                      <div className="mb-6">
+                        <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
+                          Contraseña
+                        </label>
+                        <input
+                          type="password"
+                          id="password"
+                          className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          aria-label="Contraseña"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+                        disabled={firestoreLoading} // Disable button during login attempt
+                      >
+                        {firestoreLoading ? 'Iniciando sesión...' : 'Entrar'}
+                      </button>
+                    </form>
                   )}
+                  <p className="text-center text-gray-600 text-sm mt-6 leading-relaxed">
+                    <span className="font-semibold text-gray-700">Usuarios de prueba (hardcodeados para inicio de sesión):</span>
+                    <br />
+                    <span className="font-medium">admin</span> / password123 <span className="text-gray-500">(Administrador)</span>
+                    <br />
+                    <span className="font-medium">direccion</span> / password123 <span className="text-gray-500">(Dirección)</span>
+                    <br />
+                    <span className="font-medium">distribuidor</span> / password123 <span className="text-gray-500">(Distribuidor)</span>
+                    <br />
+                    <span className="font-medium">subdistribuidor</span> / password123 <span className="text-gray-500">(Sub Distribuidor)</span>
+                  </p>
                 </div>
               </div>
             );
@@ -1004,7 +762,7 @@
                                 <input
                                 type="text"
                                 id="new-username"
-                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
+                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                                 value={newUsername}
                                 onChange={(e) => setNewUsername(e.target.value)}
                                 placeholder="Ej: juan.perez"
@@ -1018,7 +776,7 @@
                                 <input
                                 type="email"
                                 id="new-user-email"
-                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
+                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                                 value={newUserEmail}
                                 onChange={(e) => setNewUserEmail(e.target.value)}
                                 placeholder="Ej: juan.perez@dominio.com"
@@ -1032,7 +790,7 @@
                                 <input
                                 type="password"
                                 id="new-user-password"
-                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
+                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                                 value={newUserPassword}
                                 onChange={(e) => setNewUserPassword(e.target.value)}
                                 placeholder="Contraseña segura"
@@ -1045,7 +803,7 @@
                                 </label>
                                 <select
                                 id="new-user-type"
-                                className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500"
+                                className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
                                 value={newUserType}
                                 onChange={(e) => setNewUserType(e.target.value)}
                                 aria-label="Tipo de usuario para el nuevo usuario"
@@ -1059,7 +817,7 @@
                             <div className="flex items-end col-span-1 md:col-span-2 lg:col-span-1">
                                 <button
                                 onClick={handleCreateUser}
-                                className="btn-modern w-full"
+                                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
                                 disabled={firestoreLoading}
                                 >
                                 {firestoreLoading ? 'Creando...' : 'Crear Usuario'}
@@ -1093,10 +851,10 @@
                                 <tbody>
                                     {registeredUsers.map((user, index) => (
                                     <tr key={user.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150`}>
-                                        <td className="py-3 px-4 text-gray-800 border-b border-gray-100 table-cell-responsive">{user.username}</td>
-                                        <td className="py-3 px-4 text-gray-700 border-b border-gray-100 table-cell-responsive">{user.email || 'N/A'}</td>
-                                        <td className="py-3 px-4 text-gray-700 border-b border-gray-100 capitalize table-cell-responsive">{user.type}</td>
-                                        <td className="py-3 px-4 text-gray-500 text-xs border-b border-gray-100 table-cell-responsive">{user.id}</td>
+                                        <td className="py-3 px-4 whitespace-nowrap text-gray-800 border-b border-gray-100 table-cell-responsive">{user.username}</td>
+                                        <td className="py-3 px-4 whitespace-nowrap text-gray-700 border-b border-gray-100 table-cell-responsive">{user.email || 'N/A'}</td>
+                                        <td className="py-3 px-4 whitespace-nowrap text-gray-700 border-b border-gray-100 capitalize table-cell-responsive">{user.type}</td>
+                                        <td className="py-3 px-4 whitespace-nowrap text-gray-500 text-xs border-b border-gray-100 table-cell-responsive">{user.id}</td>
                                     </tr>
                                     ))}
                                     {registeredUsers.length === 0 && (
@@ -1137,7 +895,7 @@
                         </label>
                         <select
                             id="brand-select"
-                            className="border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 w-full bg-white"
+                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
                             value={selectedBrand}
                             onChange={(e) => setSelectedBrand(e.target.value)}
                             aria-label="Seleccionar Marca"
@@ -1155,21 +913,12 @@
                         <input
                             type="text"
                             id="model-search"
-                            className="border border-gray-300 rounded-lg px-4 py-2 w-full shadow-sm focus:ring-2 focus:ring-blue-500"
+                            className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                             placeholder="Ej: Nitro 5, ACN5-001"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             aria-label="Buscar por Modelo de Equipo o Código SAP"
                         />
-                    </div>
-                    <div className="w-full sm:w-auto flex-shrink-0 mt-4 sm:mt-0">
-                        <button
-                            onClick={handlePrintSelected}
-                            className="btn-modern w-full bg-green-600 hover:bg-green-700 focus:ring-green-500 no-print"
-                            disabled={selectedItems.size === 0}
-                        >
-                            Imprimir Selección ({selectedItems.size})
-                        </button>
                     </div>
                 </div>
 
@@ -1187,13 +936,10 @@
                     <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-custom-light excel-table">
                       <thead>
                         <tr>
-                          <th className="py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200 bg-gray-100">
-                            Seleccionar
-                          </th>
                           {/* Render table headers based on columnVisibility for the current userType */}
                           {columnsToDisplay.length > 0 ? (
                               columnsToDisplay.map(col => (
-                                  <th key={col.key} className={`py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200 bg-gray-100 ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
+                                  <th key={col.key} className="py-3 px-4 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200 bg-gray-100">
                                     {col.label}
                                   </th>
                               ))
@@ -1207,19 +953,10 @@
                       <tbody>
                         {filteredPriceData.map((item, index) => ( // Use filteredPriceData here
                           <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition duration-150 ease-in-out`}>
-                            <td className="py-3 px-4 text-gray-800 border-b border-gray-100 text-sm table-cell-responsive text-center">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedItems.has(item.id)}
-                                    onChange={(e) => handleCheckboxChange(item.id, e.target.checked)}
-                                    className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                                    aria-label={`Seleccionar ${item.Equipo}`}
-                                />
-                            </td>
                             {/* Render table cells based on columnVisibility for the current userType */}
                             {columnsToDisplay.length > 0 ? (
                                 columnsToDisplay.map(col => (
-                                    <td key={`${item.id}-${col.key}`} className={`py-3 px-4 text-gray-800 border-b border-gray-100 text-sm table-cell-responsive ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
+                                    <td key={`${item.id}-${col.key}`} className="py-3 px-4 whitespace-nowrap text-gray-800 border-b border-gray-100 text-sm table-cell-responsive">
                                       {/* Format price columns to 2 decimal places */}
                                       {col.key.startsWith('Precio') || col.key === 'Utilidad DS'
                                         ? `$${item[col.key] ? parseFloat(item[col.key]).toFixed(2) : '0.00'}`
@@ -1250,6 +987,7 @@
                 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
             } catch (e) {
                 console.error("Error during initial React render:", e);
+                // Display a fallback message if React fails to mount
                 const rootDiv = document.getElementById('root');
                 if (rootDiv) {
                     rootDiv.innerHTML = '<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: #fef2f2; color: #ef4444; font-family: \'Inter\', sans-serif; padding: 20px; border: 1px solid #f87171; border-radius: 8px; margin: 20px;">' +
