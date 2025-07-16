@@ -178,19 +178,18 @@
     <!-- Firebase CDN -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // Updated imports for Firebase Authentication
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // Updated imports for Firestore
         import { getFirestore, collection, onSnapshot, addDoc, query, where, getDocs, setDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variables for Firebase (will be available in the React component scope)
+        // Global variables for Firebase instances
         window.firebaseApp = null;
         window.db = null;
         window.auth = null;
-        window.firebaseInitialized = false;
-        window.appId = 'default-app-id'; // Ensure appId has a default
-        window.globalFirebaseError = null; // To store critical errors during initialization
-        window.isFirebaseInitializingGlobally = true;
+        window.appId = 'default-app-id'; // Default, will be updated
+
+        // Global flags and data that React will observe
+        window.isFirebaseInitialized = false;
+        window.firebaseInitializationError = null;
 
         // Expose Firebase functions globally for the Babel script to use
         window.collection = collection;
@@ -199,8 +198,8 @@
         window.query = query;
         window.where = where;
         window.getDocs = getDocs;
-        window.setDoc = setDoc; // Expose setDoc for creating/updating documents by specific ID
-        window.doc = doc; // Expose doc for document references
+        window.setDoc = setDoc;
+        window.doc = doc;
 
         // Expose Firebase Auth functions globally
         window.getAuth = getAuth;
@@ -211,93 +210,67 @@
         window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
         window.signOut = signOut;
 
-
-        // Initialize Firebase and authenticate
-        const initFirebase = async () => {
-            // Prevent re-initialization if already done or failed critically
-            if (window.firebaseInitialized || window.globalFirebaseError || !window.isFirebaseInitializingGlobally) {
-                console.log("Firebase already initialized, failed, or stopped. Skipping re-initialization.");
+        // Initialize Firebase and set up global listeners
+        const initFirebaseAndListeners = async () => {
+            if (window.isFirebaseInitialized || window.firebaseInitializationError) {
+                console.log("Firebase already initialized or failed. Skipping re-initialization.");
                 return;
             }
 
-            console.log("Starting Firebase initialization...");
+            console.log("Starting Firebase initialization and listeners...");
 
             try {
                 let firebaseConfig = {};
                 let currentAppId = 'default-app-id';
 
-                // Check if __firebase_config is defined (Canvas preview environment)
                 if (typeof __firebase_config !== 'undefined') {
                     firebaseConfig = JSON.parse(__firebase_config);
                     currentAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                     console.log("Firebase Config (from Canvas):", firebaseConfig);
                 } else {
-                    // For GitHub Pages or local deployment, user needs to provide their actual config
-                    // !!! IMPORTANTE: REEMPLAZA LOS VALORES DE ABAJO CON TU CONFIGURACIÓN REAL DE FIREBASE !!!
-                    // Los valores a continuación son los que proporcionaste en la imagen.
                     firebaseConfig = {
                         apiKey: "AIzaSyBfCD3_opZniAHRXat42APlrhHwh_BpGPg",
                         authDomain: "lista-de-precios-3d4df.firebaseapp.com",
                         projectId: "lista-de-precios-3d4df",
                         storageBucket: "lista-de-precios-3d4df.firebasestorage.app",
                         messagingSenderId: "561816433633",
-                        appId: "1:561816433633:web:64312f4928ae92c40d58a0", // Corregido según tu imagen
-                        measurementId: "G-GKQWC526ET" // Añadido desde tu imagen
+                        appId: "1:561816433633:web:64312f4928ae92c40d58a0",
+                        measurementId: "G-GKQWC526ET"
                     };
                     currentAppId = firebaseConfig.projectId || 'default-app-id';
-
-                    console.warn("ADVERTENCIA: Usando configuración de Firebase hardcodeada. Recuerda reemplazar los marcadores de posición con los detalles reales de tu proyecto de Firebase para el despliegue en producción.");
-                    console.log("Firebase Config (hardcodeada):", firebaseConfig);
+                    console.warn("ADVERTENCIA: Usando configuración de Firebase hardcodeada. Reemplaza con tu configuración real.");
                 }
 
-                // Explicit check for API key
                 if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === 'YOUR_FIREBASE_API_KEY' || firebaseConfig.apiKey === '') {
-                    throw new Error("Firebase API Key is missing or invalid in the configuration. Please replace 'YOUR_FIREBASE_API_KEY' with your actual key from Firebase Console.");
+                    throw new Error("Firebase API Key is missing or invalid.");
                 }
 
                 const app = initializeApp(firebaseConfig);
-                console.log("Firebase app initialized.");
-                const authInstance = getAuth(app);
-                console.log("Firebase auth obtained.");
-                const dbInstance = getFirestore(app);
-                console.log("Firebase firestore obtained.");
-
                 window.firebaseApp = app;
-                window.db = dbInstance;
-                window.auth = authInstance;
+                window.auth = getAuth(app);
+                window.db = getFirestore(app);
                 window.appId = currentAppId;
 
-                // Handle initial authentication state
-                // This listener will be used by React component to get the user UID
-                onAuthStateChanged(authInstance, (user) => {
-                    if (!user) {
-                        // If no user is logged in, try to sign in anonymously or with custom token
-                        if (typeof __initial_auth_token !== 'undefined') {
-                            signInWithCustomToken(authInstance, __initial_auth_token)
-                                .then(() => console.log("Signed in with custom token."))
-                                .catch(e => console.error("Error signing in with custom token:", e));
-                        } else {
-                            signInAnonymously(authInstance)
-                                .then(() => console.log("Signed in anonymously."))
-                                .catch(e => console.error("Error signing in anonymously:", e));
-                        }
-                    }
-                });
+                // Initial anonymous sign-in if no custom token is provided
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(window.auth, __initial_auth_token);
+                    console.log("Signed in with custom token.");
+                } else {
+                    await signInAnonymously(window.auth);
+                    console.log("Signed in anonymously.");
+                }
 
-
-                window.firebaseInitialized = true;
-                console.log("Firebase initialized and authenticated successfully.");
+                window.isFirebaseInitialized = true;
+                console.log("Firebase initialized successfully.");
 
             } catch (e) {
-                console.error("Error al inicializar Firebase o iniciar sesión:", e);
-                window.globalFirebaseError = `Error crítico al inicializar Firebase: ${e.message}. Por favor, revisa la consola del navegador.`;
-            } finally {
-                window.isFirebaseInitializingGlobally = false; // Ensure this flag is always reset
+                console.error("Error during Firebase initialization:", e);
+                window.firebaseInitializationError = `Error crítico al inicializar Firebase: ${e.message}.`;
             }
         };
 
         // Call initialization on script load
-        initFirebase();
+        initFirebaseAndListeners();
     </script>
 </head>
 <body>
@@ -386,19 +359,17 @@
           const [priceData, setPriceData] = React.useState(initialMockPriceData);
           const [csvLoading, setCsvLoading] = React.useState(false); // State for CSV loading indicator
 
-          // Firestore related states
+          // Firebase related states, managed within React
           const [registeredUsers, setRegisteredUsers] = React.useState([]); // Users fetched from Firestore (roles)
-          const [firestoreLoading, setFirestoreLoading] = React.useState(true); // Initial loading for Firestore users
+          const [firestoreLoading, setFirestoreLoading] = React.useState(true); // Initial loading for Firestore users & auth
           const [firestoreError, setFirestoreError] = React.useState(null);
           const [userId, setUserId] = React.useState(null); // Firebase Auth UID
-          const [firebaseReady, setFirebaseReady] = React.useState(false); // New state for Firebase readiness
-          const [isFirebaseInitializing, setIsFirebaseInitializing] = React.useState(window.isFirebaseInitializingGlobally);
+          const [firebaseReady, setFirebaseReady] = React.useState(false); // Flag for Firebase SDKs being ready
+          const [adminUserExists, setAdminUserExists] = React.useState(false); // Flag for admin user existence
 
           // New states for initial admin user creation
-          const [adminUserExists, setAdminUserExists] = React.useState(false);
           const [creatingAdminUser, setCreatingAdminUser] = React.useState(false);
           const [adminCreationMessage, setAdminCreationMessage] = React.useState(null);
-
 
           // New states for new user creation form (for admin)
           const [newEmail, setNewEmail] = React.useState(''); // Use email for new user creation
@@ -413,112 +384,86 @@
           // New state for selected items for printing
           const [selectedItems, setSelectedItems] = React.useState(new Set()); // Stores IDs of selected items
 
-          // Effect for Firebase readiness and global error handling
+          // Effect for Firebase initialization and authentication state
           React.useEffect(() => {
-            const updateFirebaseStates = () => {
-                if (window.globalFirebaseError) {
-                    setFirestoreError(window.globalFirebaseError);
-                    setIsFirebaseInitializing(false);
-                    setFirestoreLoading(false);
-                    return;
-                }
-
-                if (window.firebaseInitialized) {
-                    setFirebaseReady(true);
-                    setIsFirebaseInitializing(false);
-                    // Listen for authentication state changes
-                    const unsubscribeAuth = window.onAuthStateChanged(window.auth, (user) => {
-                        if (user) {
-                            setUserId(user.uid);
-                            console.log("Firebase Auth UID:", user.uid);
-                            // Fetch user's role from Firestore using UID
-                            const userDocRef = window.doc(window.db, `artifacts/${window.appId}/public/data/users`, user.uid);
-                            window.onSnapshot(userDocRef, (docSnap) => {
-                                if (docSnap.exists()) {
-                                    setUserType(docSnap.data().type);
-                                    console.log("User role from Firestore:", docSnap.data().type);
-                                } else {
-                                    console.warn("User role not found in Firestore for UID:", user.uid);
-                                    setUserType(null); // Or a default 'guest' type
-                                }
-                            }, (err) => {
-                                console.error("Error fetching user role:", err);
-                                setFirestoreError(`Error al cargar el rol de usuario: ${err.message}`);
-                                setUserType(null);
-                            });
-
-                            // Load CSV data after successful login
-                            loadCsvFromUrl(DEFAULT_CSV_URL);
-
-                        } else {
-                            setUserId(null);
-                            setUserType(null);
-                            setPriceData(initialMockPriceData); // Reset price data on logout
-                            console.log("No Firebase user logged in.");
+            // This effect runs once to initialize Firebase listeners and set up core states
+            if (!window.firebaseApp || !window.auth || !window.db) {
+                // Poll until global Firebase instances are available
+                const checkGlobalFirebase = setInterval(() => {
+                    if (window.firebaseApp && window.auth && window.db) {
+                        clearInterval(checkGlobalFirebase);
+                        setFirebaseReady(true);
+                        setFirestoreLoading(false); // Stop initial loading once Firebase is ready
+                        if (window.firebaseInitializationError) {
+                            setFirestoreError(window.firebaseInitializationError);
                         }
-                    });
-                    return unsubscribeAuth; // Return cleanup function for onAuthStateChanged
-                } else if (window.isFirebaseInitializingGlobally) {
-                    setIsFirebaseInitializing(true);
-                    const timeoutId = setTimeout(updateFirebaseStates, 100);
-                    return () => clearTimeout(timeoutId);
-                } else {
-                    console.warn("Firebase not initialized and not globally initializing. Assuming silent failure.");
-                    setIsFirebaseInitializing(false);
-                    setFirestoreLoading(false);
-                    setFirestoreError("No se pudo conectar a Firebase. Por favor, revisa tu configuración y la consola del navegador.");
+                    } else if (window.firebaseInitializationError) {
+                        clearInterval(checkGlobalFirebase);
+                        setFirestoreError(window.firebaseInitializationError);
+                        setFirestoreLoading(false);
+                    }
+                }, 100); // Check every 100ms
+                return () => clearInterval(checkGlobalFirebase);
+            } else {
+                setFirebaseReady(true);
+                setFirestoreLoading(false);
+                if (window.firebaseInitializationError) {
+                    setFirestoreError(window.firebaseInitializationError);
                 }
-                return undefined;
-            };
+            }
 
-            const unsubscribe = updateFirebaseStates();
+            // Listener for Firebase Authentication state changes
+            const unsubscribeAuth = window.onAuthStateChanged(window.auth, async (user) => {
+                if (user) {
+                    setUserId(user.uid);
+                    console.log("Firebase Auth UID (React):", user.uid);
+
+                    // Fetch user's role from Firestore using UID
+                    const userDocRef = window.doc(window.db, `artifacts/${window.appId}/public/data/users`, user.uid);
+                    const unsubscribeUserRole = window.onSnapshot(userDocRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            setUserType(docSnap.data().type);
+                            console.log("User role (React) from Firestore:", docSnap.data().type);
+                        } else {
+                            console.warn("User role not found in Firestore for UID:", user.uid);
+                            setUserType(null); // Or a default 'guest' type if desired
+                        }
+                    }, (err) => {
+                        console.error("Error fetching user role (React listener):", err);
+                        setFirestoreError(`Error al cargar el rol de usuario: ${err.message}`);
+                        setUserType(null);
+                    });
+
+                    // Load CSV data after successful login (user is available)
+                    loadCsvFromUrl(DEFAULT_CSV_URL);
+
+                    return () => unsubscribeUserRole(); // Cleanup user role listener
+                } else {
+                    setUserId(null);
+                    setUserType(null);
+                    setPriceData(initialMockPriceData); // Reset price data on logout
+                    console.log("No Firebase user logged in (React).");
+                }
+            });
+
+            // Listener for all registered users (roles) to determine adminUserExists
+            const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
+            const unsubscribeUsers = window.onSnapshot(usersCollectionRef, (snapshot) => {
+                const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setRegisteredUsers(users);
+                setAdminUserExists(users.some(u => u.type === 'admin'));
+                console.log("Registered users (roles) loaded:", users);
+            }, (err) => {
+                console.error("Error fetching registered users (roles):", err);
+                setFirestoreError(`Error al cargar usuarios registrados: ${err.message}`);
+            });
+
 
             return () => {
-                if (unsubscribe) unsubscribe();
+                unsubscribeAuth(); // Cleanup auth listener
+                unsubscribeUsers(); // Cleanup users listener
             };
-          }, []);
-
-
-          // Effect for fetching registered users (roles) from Firestore for admin view
-          React.useEffect(() => {
-            if (firebaseReady && window.db && window.appId) {
-                setFirestoreLoading(true);
-                setFirestoreError(null);
-                try {
-                    // Path for public users data: /artifacts/{appId}/public/data/users
-                    const usersCollectionRef = window.collection(window.db, `artifacts/${window.appId}/public/data/users`);
-                    const q = window.query(usersCollectionRef);
-
-                    const unsubscribeFirestore = window.onSnapshot(q, (snapshot) => {
-                        const users = snapshot.docs.map(doc => ({
-                            id: doc.id, // Document ID is now the Firebase Auth UID
-                            ...doc.data()
-                        }));
-                        setRegisteredUsers(users);
-                        // Check if an 'admin' user exists in the fetched list
-                        const adminFound = users.some(u => u.type === 'admin'); // Check type, not username directly
-                        setAdminUserExists(adminFound);
-                        setFirestoreLoading(false);
-                        console.log("Usuarios (roles) cargados de Firestore:", users);
-                        console.log("Admin user exists (in roles collection):", adminFound);
-                    }, (err) => {
-                        console.error("Error fetching users (roles) from Firestore (onSnapshot callback):", err);
-                        setFirestoreError(`Error al cargar usuarios (roles) de la base de datos: ${err.message}`);
-                        setFirestoreLoading(false);
-                    });
-
-                    return () => unsubscribeFirestore();
-                } catch (e) {
-                    console.error("Error setting up Firestore listener for user roles (useEffect catch):", e);
-                    setFirestoreError(`Error al configurar la escucha de roles de usuario en Firestore: ${e.message}`);
-                    setFirestoreLoading(false);
-                }
-            } else if (!firebaseReady) {
-                setRegisteredUsers([]);
-                setFirestoreLoading(false);
-                setAdminUserExists(false);
-            }
-          }, [firebaseReady, window.db, window.appId]);
+          }, [firebaseReady]); // Re-run if firebaseReady changes (i.e., after initial global setup)
 
 
           // Function to clean and parse numerical values from CSV
@@ -619,7 +564,7 @@
           const handleLogin = async (e) => {
             e.preventDefault();
             setError(null);
-            setFirestoreLoading(true);
+            setFirestoreLoading(true); // Indicate login process is loading
 
             if (!firebaseReady || !window.auth) {
                 setError('Firebase no está listo. Por favor, espera un momento e intenta de nuevo.');
@@ -631,12 +576,12 @@
                 // Sign in with email and password using Firebase Auth
                 const userCredential = await window.signInWithEmailAndPassword(window.auth, email, password);
                 console.log("Signed in with Firebase Auth:", userCredential.user.uid);
-                // The onAuthStateChanged listener will handle setting userType and loading CSV
+                // The onAuthStateChanged listener (in useEffect) will handle setting userType and loading CSV
             } catch (e) {
                 console.error("Error during Firebase Auth login:", e);
                 let errorMessage = "Error al iniciar sesión. Verifica tu correo y contraseña.";
-                if (e.code === 'auth/user-not-found') {
-                    errorMessage = "Usuario no encontrado. Regístrate o verifica el correo.";
+                if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') { // invalid-credential for generic wrong email/password
+                    errorMessage = "Usuario no encontrado o credenciales incorrectas.";
                 } else if (e.code === 'auth/wrong-password') {
                     errorMessage = "Contraseña incorrecta.";
                 } else if (e.code === 'auth/invalid-email') {
@@ -644,7 +589,7 @@
                 }
                 setError(errorMessage);
             } finally {
-                setFirestoreLoading(false);
+                setFirestoreLoading(false); // Reset loading state after login attempt
             }
           };
 
@@ -656,15 +601,13 @@
             }
             setCreatingAdminUser(true);
             setAdminCreationMessage(null);
-            setError(null);
+            setError(null); // Clear general error
 
             const adminEmail = 'admin@example.com'; // Default admin email
             const adminPassword = 'password123'; // Default admin password
 
             try {
-                // 1. Check if user already exists in Firebase Auth
-                // Note: Firebase Auth doesn't have a direct "check if user exists by email" API for client-side
-                // without trying to create or sign in. We'll try to create, and if it fails, it means it exists.
+                // 1. Create user in Firebase Authentication
                 let userCredential;
                 try {
                     userCredential = await window.createUserWithEmailAndPassword(window.auth, adminEmail, adminPassword);
@@ -672,6 +615,7 @@
                 } catch (e) {
                     if (e.code === 'auth/email-already-in-use') {
                         console.log("Admin email already in use in Firebase Auth. Attempting to sign in.");
+                        // If email is already in use, try to sign in (might be a previous incomplete setup)
                         userCredential = await window.signInWithEmailAndPassword(window.auth, adminEmail, adminPassword);
                     } else {
                         throw e; // Re-throw other errors
@@ -686,10 +630,9 @@
                     email: adminEmail,
                     type: 'admin',
                     createdAt: new Date(),
-                    // No password field here, Firebase Auth handles it
                 }, { merge: true }); // Use merge: true to avoid overwriting existing fields if any
 
-                setAdminUserExists(true);
+                setAdminUserExists(true); // Update local state
                 setAdminCreationMessage('Usuario admin creado/verificado con éxito. Ahora puedes iniciar sesión con admin@example.com y password123.');
                 setEmail(adminEmail);
                 setPassword(adminPassword);
@@ -698,6 +641,8 @@
                 let errorMessage = `Error al crear el usuario admin: ${e.message}.`;
                 if (e.code === 'auth/weak-password') {
                     errorMessage = "La contraseña es muy débil. Debe tener al menos 6 caracteres.";
+                } else if (e.code === 'auth/operation-not-allowed') {
+                    errorMessage = "La autenticación por correo/contraseña no está habilitada en tu proyecto de Firebase.";
                 }
                 setAdminCreationMessage(errorMessage);
             } finally {
@@ -884,7 +829,7 @@
                   <h2 className="text-3xl font-bold text-center text-gray-800 mb-4">LISTA DE PRECIOS DS</h2>
                   <p className="text-center text-gray-600 text-md mb-8">Bienvenido, favor de ingresar su correo y contraseña para ver la lista de precios</p>
 
-                  {isFirebaseInitializing && !firestoreError && ( // Show this while Firebase is truly initializing
+                  {firestoreLoading && !firestoreError && ( // Show this while Firebase is truly initializing
                         <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
                             <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -908,7 +853,7 @@
                       </div>
                   )}
 
-                  {!isFirebaseInitializing && !firestoreError && ( // Only show form if Firebase is initialized and no critical error
+                  {firebaseReady && !firestoreLoading && !firestoreError && ( // Only show form if Firebase is initialized and no critical error
                     <>
                         <form onSubmit={handleLogin}>
                         <div className="mb-6">
@@ -948,7 +893,7 @@
                         </button>
                         </form>
 
-                        {!adminUserExists && !creatingAdminUser && firebaseReady && (
+                        {!adminUserExists && !creatingAdminUser && ( // Show only if admin doesn't exist and not currently creating
                             <div className="mt-6 text-center">
                                 {adminCreationMessage && (
                                     <div className={`px-4 py-2 rounded-md mb-3 text-sm ${adminCreationMessage.includes('éxito') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} border ${adminCreationMessage.includes('éxito') ? 'border-green-400' : 'border-red-400'}`}>
@@ -958,7 +903,7 @@
                                 <button
                                     onClick={createInitialAdminUser}
                                     className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
-                                    disabled={creatingAdminUser || firestoreLoading}
+                                    disabled={creatingAdminUser}
                                 >
                                     {creatingAdminUser ? 'Creando Admin...' : 'Crear Usuario Admin Inicial (Solo una vez)'}
                                 </button>
@@ -1006,16 +951,7 @@
                 {userType === 'admin' && (
                   <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 border-b border-gray-200">
                     <h3 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-3">Gestión de Usuarios (Firestore)</h3>
-                    {!firebaseReady && (
-                        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
-                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span className="block sm:inline">Inicializando Firebase...</span>
-                        </div>
-                    )}
-                    {firebaseReady && firestoreLoading && (
+                    {firestoreLoading && (
                         <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-md mb-4 shadow-sm flex items-center justify-center gap-3" role="alert">
                             <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
